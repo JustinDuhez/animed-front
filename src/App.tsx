@@ -2,8 +2,25 @@ import { useState } from 'react'
 import AppLayout from './components/layout/AppLayout'
 import Dashboard from './pages/Dashboard'
 import PlaceholderPage from './pages/PlaceholderPage'
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+import { getAuth } from 'firebase/auth';
 
 type PageKey = 'dashboard' | 'animals' | 'sessions' | 'structures' | 'staff' | 'alerts' | 'settings'
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDH4prce6XF35j0QzmI0pPjLtmVO67zkF4",
+  authDomain: "animed-57012.firebaseapp.com",
+  projectId: "animed-57012",
+  storageBucket: "animed-57012.firebasestorage.app",
+  messagingSenderId: "471514822873",
+  appId: "1:471514822873:web:0c6ca38dac02d0507de6c8",
+  measurementId: "G-GJ7GNPZJNP"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const analytics = getAnalytics(app);
 
 function App() {
   const [page, setPage] = useState<PageKey>('dashboard')

@@ -13,3 +13,7 @@ bower_components
 psd
 thumb
 sketch
+
+.agents/*
+.claude/*
+.junie/*
