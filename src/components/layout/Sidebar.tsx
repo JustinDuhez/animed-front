@@ -1,3 +1,6 @@
+import { useState, useRef, useEffect } from 'react'
+import type { User } from 'firebase/auth'
+
 interface NavItem {
   icon: string
   label: string
@@ -36,12 +39,45 @@ const NAV: NavSection[] = [
   },
 ]
 
+function initials(user: User): string {
+  if (user.displayName) {
+    return user.displayName
+      .split(' ')
+      .filter(Boolean)
+      .slice(0, 2)
+      .map(w => w[0].toUpperCase())
+      .join('')
+  }
+  return user.email?.[0]?.toUpperCase() ?? '?'
+}
+
+function shortName(user: User): string {
+  if (user.displayName) return user.displayName
+  return user.email ?? ''
+}
+
 interface Props {
   activePage: string
   onNavigate: (key: string) => void
+  user: User
+  onSignOut: () => void
 }
 
-export default function Sidebar({ activePage, onNavigate }: Props) {
+export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Props) {
+  const [open, setOpen] = useState(false)
+  const footerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function handleClick(e: MouseEvent) {
+      if (footerRef.current && !footerRef.current.contains(e.target as Node)) {
+        setOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [open])
+
   return (
     <aside className="app-sidebar">
       <div className="sb-brand">
@@ -76,13 +112,36 @@ export default function Sidebar({ activePage, onNavigate }: Props) {
         ))}
       </nav>
 
-      <div className="sb-footer">
-        <div className="sb-user">
-          <div className="sb-avatar">SD</div>
+      <div className="sb-footer" ref={footerRef}>
+        {open && (
+          <div className="sb-user-menu">
+            <div className="sb-user-menu-info">
+              <p className="sb-user-menu-name">{shortName(user)}</p>
+              <p className="sb-user-menu-email">{user.email}</p>
+            </div>
+            <div className="sb-user-menu-divider" />
+            <button
+              className="sb-user-menu-item"
+              onClick={() => { setOpen(false); onSignOut() }}
+            >
+              <span>⎋</span>
+              Se déconnecter
+            </button>
+          </div>
+        )}
+        <div
+          className={`sb-user${open ? ' active' : ''}`}
+          onClick={() => setOpen(v => !v)}
+          role="button"
+          aria-expanded={open}
+          aria-haspopup="menu"
+        >
+          <div className="sb-avatar">{initials(user)}</div>
           <div>
-            <div className="sb-user-name">S. Durand</div>
+            <div className="sb-user-name">{shortName(user)}</div>
             <div className="sb-user-role">Administrateur</div>
           </div>
+          <span className="sb-user-chevron">{open ? '▲' : '▼'}</span>
         </div>
       </div>
     </aside>

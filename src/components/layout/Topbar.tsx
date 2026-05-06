@@ -37,12 +37,6 @@ export default function Topbar({ crumbs, onNavigate }: Props) {
           🔔
           <span className="tb-notif-dot" />
         </div>
-        <div className="tb-user-chip">
-          <div className="tb-av">SD</div>
-          <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate-700)' }}>
-            S. Durand
-          </span>
-        </div>
       </div>
     </header>
   )
