@@ -1,19 +1,41 @@
-### react ###
-.DS_*
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Vite
+*.local
+vite.config.ts.timestamp-*
+
+# TypeScript
+*.tsbuildinfo
+
+# Logs
+logs/
 *.log
-logs
-**/*.backup.*
-**/*.back.*
+npm-debug.log*
 
-node_modules
-bower_components
+# Environment & secrets
+.env
+.env.local
+.env.*.local
 
+# Firebase
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
 *.sublime*
 
-psd
-thumb
-sketch
-
-.agents/*
-.claude/*
-.junie/*
+# Claude / AI tooling
+.agents/
+.claude/
+.junie/
