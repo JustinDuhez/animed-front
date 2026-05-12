@@ -19,10 +19,18 @@ interface Props {
   user: User
   onSignOut: () => void
   children: ReactNode
+  extraCrumb?: string
 }
 
-export default function AppLayout({ activePage, onNavigate, user, onSignOut, children }: Props) {
-  const crumbs = CRUMBS[activePage] ?? CRUMBS.dashboard
+export default function AppLayout({ activePage, onNavigate, user, onSignOut, children, extraCrumb }: Props) {
+  const base = CRUMBS[activePage] ?? CRUMBS.dashboard
+  const crumbs = extraCrumb
+    ? [
+        ...base.slice(0, -1),
+        { label: base[base.length - 1].label, key: activePage },
+        { label: extraCrumb },
+      ]
+    : base
 
   return (
     <>

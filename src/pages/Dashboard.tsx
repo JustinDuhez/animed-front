@@ -65,7 +65,11 @@ const statusBadge = (s: string) => {
   return <span className={`badge ${map[s] ?? 'badge-neutral'}`}><span className="badge-dot" />{label[s] ?? s}</span>
 }
 
-export default function Dashboard() {
+interface Props {
+  onSelectAnimal: (id: string, name: string) => void
+}
+
+export default function Dashboard({ onSelectAnimal }: Props) {
   return (
     <>
       <div className="page-header">
@@ -146,7 +150,11 @@ export default function Dashboard() {
                 <tr key={a.id}>
                   <td><input type="checkbox" className="table-check" /></td>
                   <td className="td-primary">
-                    <div className="td-cell-animal">
+                    <div
+                      className="td-cell-animal"
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => onSelectAnimal(a.id, a.name)}
+                    >
                       <div className="td-av">{a.emoji}</div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700 }}>{a.name}</div>
