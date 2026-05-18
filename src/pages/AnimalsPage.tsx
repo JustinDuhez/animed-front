@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { ANIMALS } from '../data/animals.js'
-import type { Status } from '../data/animals.js'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebase.js'
+import { seedAnimalsIfEmpty } from '../utils/seedAnimals.js'
+import type { Animal, Status } from '../data/animals.js'
 
 type FilterTab   = 'tous' | 'actif' | 'repos' | 'alerte'
 type SortKey     = 'name' | 'species' | 'sessions' | 'handler'
@@ -41,24 +43,35 @@ interface Props {
 }
 
 export default function AnimalsPage({ onSelectAnimal }: Props) {
-  const [search,  setSearch]  = useState('')
-  const [filter,  setFilter]  = useState<FilterTab>('tous')
-  const [page,    setPage]    = useState(1)
+  const [animals,  setAnimals]  = useState<Animal[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [search,   setSearch]   = useState('')
+  const [filter,   setFilter]   = useState<FilterTab>('tous')
+  const [page,     setPage]     = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [sortKey,  setSortKey]  = useState<SortKey | null>('name')
   const [sortDir,  setSortDir]  = useState<SortDir>('asc')
 
   const selectAllRef = useRef<HTMLInputElement>(null)
 
+  useEffect(() => {
+    seedAnimalsIfEmpty().catch(console.error)
+    const unsub = onSnapshot(collection(db, 'animals'), snap => {
+      setAnimals(snap.docs.map(d => d.data() as Animal))
+      setLoading(false)
+    })
+    return unsub
+  }, [])
+
   const counts = useMemo(() => ({
-    tous:  ANIMALS.length,
-    actif: ANIMALS.filter(a => a.status === 'actif').length,
-    repos: ANIMALS.filter(a => a.status === 'repos').length,
-    alerte: ANIMALS.filter(a => a.status === 'alerte' || !a.vaccineOk).length,
-  }), [])
+    tous:   animals.length,
+    actif:  animals.filter((a: Animal) => a.status === 'actif').length,
+    repos:  animals.filter((a: Animal) => a.status === 'repos').length,
+    alerte: animals.filter((a: Animal) => a.status === 'alerte' || !a.vaccineOk).length,
+  }), [animals])
 
   const processed = useMemo(() => {
-    let data = ANIMALS
+    let data = animals
 
     if (filter === 'actif')  data = data.filter(a => a.status === 'actif')
     if (filter === 'repos')  data = data.filter(a => a.status === 'repos')
@@ -86,7 +99,7 @@ export default function AnimalsPage({ onSelectAnimal }: Props) {
     }
 
     return data
-  }, [search, filter, sortKey, sortDir])
+  }, [animals, search, filter, sortKey, sortDir])
 
   const totalPages = Math.max(1, Math.ceil(processed.length / PAGE_SIZE))
   const safePage   = Math.min(page, totalPages)
@@ -137,12 +150,14 @@ export default function AnimalsPage({ onSelectAnimal }: Props) {
 
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
 
+  if (loading) return <div className="empty-state"><div className="empty-icon">🐾</div><div className="empty-title">Chargement…</div></div>
+
   return (
     <>
       <div className="page-header">
         <div>
           <h1 className="page-title">Animaux</h1>
-          <p className="page-subtitle">{ANIMALS.length} animaux enregistrés · {counts.alerte} alertes sanitaires</p>
+          <p className="page-subtitle">{animals.length} animaux enregistrés · {counts.alerte} alertes sanitaires</p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
           <button className="btn btn-secondary">⬇ Exporter CSV</button>
@@ -270,9 +285,9 @@ export default function AnimalsPage({ onSelectAnimal }: Props) {
                 </td>
                 <td style={{ color: 'var(--slate-600)' }}>{a.species}</td>
                 <td>
-                  <span className={`badge ${STATUS_BADGE[a.status].cls}`}>
+                  <span className={`badge ${(STATUS_BADGE[a.status] ?? STATUS_BADGE.alerte).cls}`}>
                     <span className="badge-dot" />
-                    {STATUS_BADGE[a.status].label}
+                    {(STATUS_BADGE[a.status] ?? STATUS_BADGE.alerte).label}
                   </span>
                 </td>
                 <td>

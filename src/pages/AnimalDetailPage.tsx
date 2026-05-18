@@ -1,5 +1,6 @@
-import { useState } from 'react'
-import { ANIMALS } from '../data/animals.js'
+import { useState, useEffect } from 'react'
+import { doc, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebase.js'
 import type { Animal, Vaccine } from '../data/animals.js'
 
 type Tab = 'infos' | 'seances' | 'sante' | 'documents'
@@ -36,7 +37,17 @@ interface Props {
 
 export default function AnimalDetailPage({ id, onBack }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('infos')
-  const animal = ANIMALS.find(a => a.id === id)
+  const [animal, setAnimal] = useState<Animal | null | undefined>(undefined)
+
+  useEffect(() => {
+    return onSnapshot(doc(db, 'animals', id), snap => {
+      setAnimal(snap.exists() ? (snap.data() as Animal) : null)
+    })
+  }, [id])
+
+  if (animal === undefined) {
+    return <div className="empty-state"><div className="empty-icon">🐾</div><div className="empty-title">Chargement…</div></div>
+  }
 
   if (!animal) {
     return (
