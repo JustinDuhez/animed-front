@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import { seedAnimalsIfEmpty } from '../utils/seedAnimals.js'
+import { seedSessionsIfEmpty } from '../utils/seedSessions.js'
 import type { Animal, Status } from '../data/animals.js'
 
 type FilterTab   = 'tous' | 'actif' | 'repos' | 'alerte'
@@ -57,6 +58,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
 
   useEffect(() => {
     seedAnimalsIfEmpty().catch(console.error)
+    seedSessionsIfEmpty().catch(console.error)
     const unsub = onSnapshot(collection(db, 'animals'), snap => {
       setAnimals(snap.docs.map(d => d.data() as Animal))
       setLoading(false)
@@ -89,9 +91,10 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
     }
 
     if (sortKey) {
+      const currentMonth = new Date().toISOString().slice(0, 7)
       data = [...data].sort((a, b) => {
-        const av = a[sortKey]
-        const bv = b[sortKey]
+        const av = sortKey === 'sessions' ? (a.sessions[currentMonth] ?? 0) : a[sortKey]
+        const bv = sortKey === 'sessions' ? (b.sessions[currentMonth] ?? 0) : b[sortKey]
         const cmp = typeof av === 'number'
           ? (av as number) - (bv as number)
           : String(av).localeCompare(String(bv), 'fr')
@@ -297,7 +300,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
                     {a.vaccineOk ? 'À jour' : 'Expiré'}
                   </span>
                 </td>
-                <td>{a.sessions}</td>
+                <td>{a.sessions[new Date().toISOString().slice(0, 7)] ?? 0}</td>
                 <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>
                   {a.lastSession}
                 </td>

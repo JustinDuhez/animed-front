@@ -30,7 +30,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
   const [chipId, setChipId] = useState('')
 
   const [handler, setHandler] = useState('')
-  const [sessions, setSessions] = useState(0)
+  const [sessionsThisMonth, setSessionsThisMonth] = useState(0)
   const [lastSession, setLastSession] = useState('')
   const [lastVetCheck, setLastVetCheck] = useState('')
 
@@ -87,7 +87,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
         weight: weight.trim() || '—',
         chipId: chipId.trim() || '—',
         handler: handler.trim() || '—',
-        sessions,
+        sessions: sessionsThisMonth > 0 ? { [new Date().toISOString().slice(0, 7)]: sessionsThisMonth } : {},
         lastSession: lastSession.trim() || '—',
         lastVetCheck: lastVetCheck.trim() || '—',
         vaccineOk,
@@ -205,7 +205,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
                   </div>
                   <div className="form-field">
                     <label className="form-label">Séances ce mois</label>
-                    <input className="form-input" type="number" min="0" value={sessions} onChange={e => setSessions(parseInt(e.target.value) || 0)} />
+                    <input className="form-input" type="number" min="0" value={sessionsThisMonth} onChange={e => setSessionsThisMonth(parseInt(e.target.value) || 0)} />
                   </div>
                   <div className="form-field">
                     <label className="form-label">Dernière séance</label>
