@@ -5,6 +5,7 @@ import AppLayout from './components/layout/AppLayout.js'
 import Dashboard from './pages/Dashboard.js'
 import AnimalsPage from './pages/AnimalsPage.js'
 import AnimalDetailPage from './pages/AnimalDetailPage.js'
+import AddAnimalPage from './pages/AddAnimalPage.js'
 import PlaceholderPage from './pages/PlaceholderPage.js'
 import LoginPage from './pages/LoginPage.js'
 
@@ -14,6 +15,7 @@ function App() {
   const [page, setPage] = useState<PageKey>('dashboard')
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [selectedAnimal, setSelectedAnimal] = useState<{ id: string; name: string } | null>(null)
+  const [addingAnimal, setAddingAnimal] = useState(false)
 
   useEffect(() => {
     return onAuthStateChanged(auth, u => setUser(u))
@@ -25,7 +27,14 @@ function App() {
   function navigate(k: string) {
     setPage(k as PageKey)
     setSelectedAnimal(null)
+    setAddingAnimal(false)
   }
+
+  const extraCrumb = page === 'animals'
+    ? addingAnimal ? 'Nouvel animal'
+    : selectedAnimal ? selectedAnimal.name
+    : undefined
+    : undefined
 
   return (
     <AppLayout
@@ -33,13 +42,22 @@ function App() {
       onNavigate={navigate}
       user={user}
       onSignOut={() => signOut(auth)}
-      extraCrumb={page === 'animals' && selectedAnimal ? selectedAnimal.name : undefined}
+      extraCrumb={extraCrumb}
     >
       {page === 'dashboard'  && <Dashboard onSelectAnimal={(id, name) => { setPage('animals'); setSelectedAnimal({ id, name }) }} />}
-      {page === 'animals'    && !selectedAnimal && (
-        <AnimalsPage onSelectAnimal={(id, name) => setSelectedAnimal({ id, name })} />
+      {page === 'animals' && !selectedAnimal && !addingAnimal && (
+        <AnimalsPage
+          onSelectAnimal={(id, name) => setSelectedAnimal({ id, name })}
+          onAddAnimal={() => setAddingAnimal(true)}
+        />
       )}
-      {page === 'animals'    && selectedAnimal && (
+      {page === 'animals' && addingAnimal && (
+        <AddAnimalPage
+          onBack={() => setAddingAnimal(false)}
+          onSaved={(id, name) => { setAddingAnimal(false); setSelectedAnimal({ id, name }) }}
+        />
+      )}
+      {page === 'animals' && selectedAnimal && !addingAnimal && (
         <AnimalDetailPage id={selectedAnimal.id} onBack={() => setSelectedAnimal(null)} />
       )}
       {page === 'sessions'   && <PlaceholderPage icon="📋" title="Séances"       description="284 séances ce trimestre"            cta="Planifier une séance" />}

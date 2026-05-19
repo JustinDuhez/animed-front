@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
-import { collection, onSnapshot } from 'firebase/firestore'
+import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import { seedAnimalsIfEmpty } from '../utils/seedAnimals.js'
 import type { Animal, Status } from '../data/animals.js'
@@ -40,9 +40,10 @@ function thClass(key: SortKey, sortKey: SortKey | null, sortDir: SortDir) {
 
 interface Props {
   onSelectAnimal: (id: string, name: string) => void
+  onAddAnimal: () => void
 }
 
-export default function AnimalsPage({ onSelectAnimal }: Props) {
+export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
   const [animals,  setAnimals]  = useState<Animal[]>([])
   const [loading,  setLoading]  = useState(true)
   const [search,   setSearch]   = useState('')
@@ -161,7 +162,7 @@ export default function AnimalsPage({ onSelectAnimal }: Props) {
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
           <button className="btn btn-secondary">⬇ Exporter CSV</button>
-          <button className="btn btn-primary">+ Ajouter un animal</button>
+          <button className="btn btn-primary" onClick={onAddAnimal}>+ Ajouter un animal</button>
         </div>
       </div>
 
@@ -305,8 +306,15 @@ export default function AnimalsPage({ onSelectAnimal }: Props) {
                 </td>
                 <td className="td-actions" onClick={e => e.stopPropagation()}>
                   <button className="td-action-btn" title="Modifier">✏</button>
-                  <button className="td-action-btn" title="Voir la fiche">🔗</button>
-                  <button className="td-action-btn danger" title="Supprimer">🗑</button>
+                  <button className="td-action-btn" title="Voir la fiche" onClick={() => onSelectAnimal(a.id, a.name)}>🔗</button>
+                  <button
+                    className="td-action-btn danger"
+                    title="Supprimer"
+                    onClick={() => {
+                      if (window.confirm(`Supprimer ${a.name} ? Cette action est irréversible.`))
+                        deleteDoc(doc(db, 'animals', a.id)).catch(console.error)
+                    }}
+                  >🗑</button>
                 </td>
               </tr>
             ))}
