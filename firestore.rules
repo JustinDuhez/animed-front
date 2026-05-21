@@ -79,7 +79,6 @@ service cloud.firestore {
                     && request.resource.data.id == animalId;
 
       allow update: if isAuthenticated()
-                    && isValidAnimal()
                     && request.resource.data.id == resource.data.id;
 
       allow delete: if isAuthenticated();

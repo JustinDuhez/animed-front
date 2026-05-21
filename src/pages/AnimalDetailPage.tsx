@@ -102,6 +102,10 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
     setDraft(d => d ? { ...d, vaccines: d.vaccines.filter((_, idx) => idx !== i) } : d)
   }
 
+  async function updateStatus(newStatus: Status) {
+    await updateDoc(doc(db, 'animals', id), { status: newStatus } as unknown as Record<string, unknown>)
+  }
+
   function updateEstablishment(i: number, value: string) {
     setDraft(d => {
       if (!d) return d
@@ -185,7 +189,7 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
           <div className="hero-badges">
             <span className={`hero-badge hero-badge-status ${d.status}`}>{statusLabel}</span>
             <span className="hero-badge">{d.id}</span>
-            {d.chipId !== '—' && <span className="hero-badge">Puce {d.chipId}</span>}
+            {d.chipId !== '—' && <span className="hero-badge">{d.chipId}</span>}
             {hasAlert && <span className="hero-badge hero-badge-alert">⚠ Alerte sanitaire</span>}
           </div>
         </div>
@@ -355,7 +359,7 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                     <div className="info-label">Puce électronique</div>
                     {editing && draft
                       ? <input className="form-input" type="text" value={draft.chipId === '—' ? '' : draft.chipId} onChange={e => setField('chipId', e.target.value || '—')} style={{ marginTop: 4 }} />
-                      : <div className="info-value" style={{ fontFamily: 'monospace', fontSize: 12, marginTop: 5 }}>{d.chipId}</div>}
+                      : <div className="info-value" style={{ fontFamily: 'monospace' }}>{d.chipId}</div>}
                   </div>
 
                 </div>
@@ -396,7 +400,7 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                 <div style={{ display: 'flex', gap: 'var(--sp-3)', marginBottom: 'var(--sp-5)' }}>
                   {[
                     { value: String(sessionRecords.length), label: 'Séances totales' },
-                    { value: String(animal.sessions),       label: 'Ce mois-ci' },
+                    { value: String(animal.sessions[new Date().toISOString().slice(0, 7)] ?? 0), label: 'Ce mois-ci' },
                     { value: animal.lastSession,            label: 'Dernière séance' },
                   ].map(stat => (
                     <div key={stat.label} style={{ flex: 1, textAlign: 'center', padding: 'var(--sp-4)', background: 'var(--slate-50)', borderRadius: 'var(--radius)', border: '1px solid var(--slate-100)' }}>
@@ -576,9 +580,25 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                 </select>
               ) : (
                 <>
-                  <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }}>Mettre en repos</button>
-                  {d.status !== 'retraite' && (
-                    <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', color: 'var(--slate-500)' }}>Mettre à la retraite</button>
+                  {animal.status === 'repos' ? (
+                    <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={() => updateStatus('actif')}>
+                      Remettre en activité
+                    </button>
+                  ) : animal.status !== 'retraite' ? (
+                    <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }}
+                      onClick={() => updateStatus('repos')}>
+                      Mettre en repos
+                    </button>
+                  ) : null}
+                  {animal.status !== 'retraite' && (
+                    <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', color: 'var(--slate-500)' }}
+                      onClick={() => {
+                        if (window.confirm(`Mettre ${animal.name} à la retraite ? Le statut passera à "Retraité" et l'animal ne sera plus actif.`))
+                          updateStatus('retraite')
+                      }}>
+                      Mettre à la retraite
+                    </button>
                   )}
                 </>
               )}
