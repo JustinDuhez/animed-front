@@ -74,7 +74,7 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
       const validVaccines = draft.vaccines.filter(v => v.name.trim())
       const vaccineOk = validVaccines.length > 0 && validVaccines.every(v => v.status === 'ok')
       const updated: Animal = { ...draft, vaccines: validVaccines, vaccineOk }
-      await updateDoc(doc(db, 'animals', id), updated as unknown as Record<string, unknown>)
+      await updateDoc(doc(db, 'animals', id), updated as any)
       setEditing(false)
       setDraft(null)
     } catch {
@@ -103,7 +103,7 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
   }
 
   async function updateStatus(newStatus: Status) {
-    await updateDoc(doc(db, 'animals', id), { status: newStatus } as unknown as Record<string, unknown>)
+    await updateDoc(doc(db, 'animals', id), { status: newStatus } as any)
   }
 
   function updateEstablishment(i: number, value: string) {
