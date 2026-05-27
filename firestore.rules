@@ -1,7 +1,107 @@
 rules_version = '2';
 
+// Collection: animals — Document fields described in data/animals.ts
+// Collection: sessions — Document fields described in data/animals.ts (Session interface)
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ── Animal validator ──────────────────────────────────────────
+
+    function isValidAnimal() {
+      let d = request.resource.data;
+      let allowedFields = [
+        'id', 'emoji', 'name', 'species', 'status', 'vaccineOk',
+        'sessions', 'lastSession', 'handler', 'gender', 'birthDate',
+        'weight', 'chipId', 'lastVetCheck', 'antiparasiteOk',
+        'antiparasiteInfo', 'vermifugeDaysLeft', 'establishments',
+        'nextSession', 'vaccines'
+      ];
+      return hasOnlyAllowedFields(allowedFields)
+          && hasRequiredFields(allowedFields)
+          && d.id is string && d.id.size() >= 1 && d.id.size() <= 30
+          && d.emoji is string && d.emoji.size() >= 1 && d.emoji.size() <= 8
+          && d.name is string && d.name.size() >= 1 && d.name.size() <= 100
+          && d.species is string && d.species.size() >= 1 && d.species.size() <= 100
+          && d.status in ['actif', 'repos', 'alerte', 'retraite']
+          && d.vaccineOk is bool
+          && d.sessions is map
+          && d.lastSession is string && d.lastSession.size() <= 50
+          && d.handler is string && d.handler.size() <= 100
+          && d.gender in ['Mâle', 'Femelle']
+          && d.birthDate is string && d.birthDate.size() <= 20
+          && d.weight is string && d.weight.size() <= 30
+          && d.chipId is string && d.chipId.size() <= 30
+          && d.lastVetCheck is string && d.lastVetCheck.size() <= 50
+          && d.antiparasiteOk is bool
+          && d.antiparasiteInfo is string && d.antiparasiteInfo.size() <= 200
+          && (d.vermifugeDaysLeft == null || d.vermifugeDaysLeft is number)
+          && d.establishments is list && d.establishments.size() <= 20
+          && d.vaccines is list && d.vaccines.size() <= 10
+          && (d.nextSession == null || d.nextSession is map);
+    }
+
+    // ── Session validator ─────────────────────────────────────────
+
+    function isValidSession() {
+      let d = request.resource.data;
+      let allowedFields = ['id', 'animalId', 'date', 'structure', 'handler', 'notes', 'status'];
+      return hasOnlyAllowedFields(allowedFields)
+          && hasRequiredFields(allowedFields)
+          && d.id is string && d.id.size() >= 1 && d.id.size() <= 50
+          && d.animalId is string && d.animalId.size() >= 1 && d.animalId.size() <= 30
+          && d.date is string && d.date.size() <= 30
+          && d.structure is string && d.structure.size() <= 100
+          && d.handler is string && d.handler.size() <= 100
+          && d.notes is string && d.notes.size() <= 1000
+          && d.status in ['completed', 'planned', 'cancelled'];
+    }
+
+    // ── Animals collection ────────────────────────────────────────
+
+    match /animals/{animalId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+                    && isValidAnimal()
+                    && request.resource.data.id == animalId;
+
+      allow update: if isAuthenticated()
+                    && request.resource.data.id == resource.data.id;
+
+      allow delete: if isAuthenticated();
+    }
+
+    // ── Sessions collection ───────────────────────────────────────
+
+    match /sessions/{sessionId} {
+      allow read: if isAuthenticated();
+
+      allow create: if isAuthenticated()
+                    && isValidSession()
+                    && request.resource.data.id == sessionId;
+
+      allow update: if isAuthenticated()
+                    && isValidSession()
+                    && request.resource.data.id == resource.data.id
+                    && request.resource.data.animalId == resource.data.animalId;
+
+      allow delete: if isAuthenticated();
+    }
+
+    // Deny everything else
     match /{document=**} {
       allow read, write: if false;
     }
