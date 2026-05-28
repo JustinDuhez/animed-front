@@ -6,6 +6,9 @@ import Dashboard from './pages/Dashboard.js'
 import AnimalsPage from './pages/AnimalsPage.js'
 import AnimalDetailPage from './pages/AnimalDetailPage.js'
 import AddAnimalPage from './pages/AddAnimalPage.js'
+import SessionsPage from './pages/SessionsPage.js'
+import AddSessionPage from './pages/AddSessionPage.js'
+import SessionDetailPage from './pages/SessionDetailPage.js'
 import PlaceholderPage from './pages/PlaceholderPage.js'
 import LoginPage from './pages/LoginPage.js'
 
@@ -16,6 +19,8 @@ function App() {
   const [user, setUser] = useState<User | null | undefined>(undefined)
   const [selectedAnimal, setSelectedAnimal] = useState<{ id: string; name: string } | null>(null)
   const [addingAnimal, setAddingAnimal] = useState(false)
+  const [addingSession, setAddingSession] = useState(false)
+  const [selectedSession, setSelectedSession] = useState<{ id: string; label: string } | null>(null)
 
   useEffect(() => {
     return onAuthStateChanged(auth, u => setUser(u))
@@ -28,12 +33,15 @@ function App() {
     setPage(k as PageKey)
     setSelectedAnimal(null)
     setAddingAnimal(false)
+    setAddingSession(false)
+    setSelectedSession(null)
   }
 
-  const extraCrumb = page === 'animals'
-    ? addingAnimal ? 'Nouvel animal'
-    : selectedAnimal ? selectedAnimal.name
-    : undefined
+  const extraCrumb =
+    page === 'animals'
+      ? addingAnimal ? 'Nouvel animal' : selectedAnimal ? selectedAnimal.name : undefined
+    : page === 'sessions'
+      ? addingSession ? 'Nouvelle séance' : selectedSession ? selectedSession.label : undefined
     : undefined
 
   return (
@@ -60,7 +68,26 @@ function App() {
       {page === 'animals' && selectedAnimal && !addingAnimal && (
         <AnimalDetailPage id={selectedAnimal.id} onBack={() => setSelectedAnimal(null)} />
       )}
-      {page === 'sessions'   && <PlaceholderPage icon="📋" title="Séances"       description="284 séances ce trimestre"            cta="Planifier une séance" />}
+      {page === 'sessions' && !addingSession && !selectedSession && (
+        <SessionsPage
+          onSelectAnimal={(id, name) => { setPage('animals'); setSelectedAnimal({ id, name }) }}
+          onAddSession={() => setAddingSession(true)}
+          onSelectSession={(id, label) => setSelectedSession({ id, label })}
+        />
+      )}
+      {page === 'sessions' && addingSession && (
+        <AddSessionPage
+          onBack={() => setAddingSession(false)}
+          onSaved={() => setAddingSession(false)}
+        />
+      )}
+      {page === 'sessions' && selectedSession && !addingSession && (
+        <SessionDetailPage
+          id={selectedSession.id}
+          onBack={() => setSelectedSession(null)}
+          onSelectAnimal={(id, name) => { setPage('animals'); setSelectedAnimal({ id, name }) }}
+        />
+      )}
       {page === 'structures' && <PlaceholderPage icon="🏥" title="Structures"    description="31 établissements partenaires"       cta="Ajouter une structure" />}
       {page === 'staff'      && <PlaceholderPage icon="🥼" title="Intervenants"  description="18 intervenants actifs · Tous ACACED" cta="Ajouter un intervenant" />}
       {page === 'alerts'     && <PlaceholderPage icon="⚠️" title="Alertes"       description="5 alertes sanitaires actives" />}
