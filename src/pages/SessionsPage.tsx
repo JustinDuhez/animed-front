@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal, Session } from '../data/animals.js'
@@ -222,11 +222,6 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
                         <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 2 }}>
                           {s.handler || '—'}
                         </div>
-                        {s.notes && (
-                          <div style={{ fontSize: 12, color: 'var(--slate-400)', fontStyle: 'italic', marginTop: 'var(--sp-2)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' } as React.CSSProperties}>
-                            {s.notes}
-                          </div>
-                        )}
                       </div>
 
                     </div>

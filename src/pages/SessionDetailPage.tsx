@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { doc, onSnapshot } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal, Session } from '../data/animals.js'
 
@@ -26,8 +26,12 @@ interface Props {
 }
 
 export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props) {
-  const [session, setSession] = useState<Session | null | undefined>(undefined)
-  const [animal,  setAnimal]  = useState<Animal  | null | undefined>(undefined)
+  const [session,   setSession]   = useState<Session | null | undefined>(undefined)
+  const [animal,    setAnimal]    = useState<Animal  | null | undefined>(undefined)
+  const [editing,   setEditing]   = useState(false)
+  const [draft,     setDraft]     = useState<Session | null>(null)
+  const [saving,    setSaving]    = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   useEffect(() => {
     return onSnapshot(doc(db, 'sessions', id), snap => {
@@ -41,6 +45,38 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
       setAnimal(snap.exists() ? (snap.data() as Animal) : null)
     })
   }, [session?.animalId])
+
+  function startEditing() {
+    if (!session) return
+    setDraft({ ...session })
+    setEditing(true)
+    setSaveError('')
+  }
+
+  function cancelEditing() {
+    setEditing(false)
+    setDraft(null)
+    setSaveError('')
+  }
+
+  async function saveEditing() {
+    if (!draft) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      await updateDoc(doc(db, 'sessions', id), draft as any)
+      setEditing(false)
+      setDraft(null)
+    } catch {
+      setSaveError('Erreur lors de la sauvegarde. Veuillez réessayer.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function setField<K extends keyof Session>(field: K, value: Session[K]) {
+    setDraft(d => d ? { ...d, [field]: value } : d)
+  }
 
   if (session === undefined) {
     return <div className="empty-state"><div className="empty-icon">📋</div><div className="empty-title">Chargement…</div></div>
@@ -56,12 +92,13 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
     )
   }
 
-  const d   = new Date(session.date)
+  const s   = editing && draft ? draft : session
+  const d   = new Date(s.date)
   const now = new Date()
-  const { cls, label } = SESSION_STATUS[session.status]
+  const { cls, label } = SESSION_STATUS[s.status]
   const hasWarning =
-    (session.status === 'planned'   && d < now) ||
-    (session.status === 'completed' && d > now)
+    (s.status === 'planned'   && d < now) ||
+    (s.status === 'completed' && d > now)
 
   return (
     <>
@@ -72,13 +109,32 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
             {animal?.emoji ?? '📋'} {animal?.name ?? session.animalId}
           </h1>
           <p className="page-subtitle" style={{ textTransform: 'capitalize' }}>
-            {formatFullDate(session.date)} · {formatTime(session.date)}
+            {formatFullDate(s.date)} · {formatTime(s.date)}
           </p>
         </div>
         <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
+          {editing ? (
+            <>
+              <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
+              <button className="btn btn-primary"   onClick={saveEditing}   disabled={saving}>
+                {saving ? 'Enregistrement…' : '✓ Enregistrer'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
+              <button className="btn btn-primary"   onClick={startEditing}>✏ Modifier</button>
+            </>
+          )}
         </div>
       </div>
+
+      {saveError && (
+        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
+          <span className="alert-icon">✕</span>
+          <div className="alert-body"><div className="alert-title">{saveError}</div></div>
+        </div>
+      )}
 
       <div className="detail-layout">
 
@@ -90,37 +146,72 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
             <div className="card-header">
               <div className="card-title">Détails de la séance</div>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--sp-1)' }}>
-                <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
-                {hasWarning && (
-                  <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>
-                    {session.status === 'planned' ? '⚠ Date dépassée' : '⚠ Date future'}
-                  </span>
+                {editing && draft ? (
+                  <select className="form-select" value={draft.status} onChange={e => setField('status', e.target.value as Session['status'])}>
+                    <option value="planned">Planifiée</option>
+                    <option value="completed">Effectuée</option>
+                    <option value="cancelled">Annulée</option>
+                  </select>
+                ) : (
+                  <>
+                    <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
+                    {hasWarning && (
+                      <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>
+                        {s.status === 'planned' ? '⚠ Date dépassée' : '⚠ Date future'}
+                      </span>
+                    )}
+                  </>
                 )}
               </div>
             </div>
             <div className="card-body">
               <div className="info-grid">
 
-                <div className="info-tile">
-                  <div className="info-label">Date</div>
-                  <div className="info-value" style={{ textTransform: 'capitalize' }}>
-                    {formatFullDate(session.date)}
-                  </div>
-                </div>
-
-                <div className="info-tile">
-                  <div className="info-label">Heure</div>
-                  <div className="info-value">{formatTime(session.date)}</div>
+                <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
+                  <div className="info-label">Date et heure</div>
+                  {editing && draft ? (
+                    <input
+                      className="form-input"
+                      type="datetime-local"
+                      value={draft.date.slice(0, 16)}
+                      onChange={e => setField('date', e.target.value + ':00')}
+                      style={{ marginTop: 4 }}
+                    />
+                  ) : (
+                    <div className="info-value" style={{ textTransform: 'capitalize' }}>
+                      {formatFullDate(s.date)} · {formatTime(s.date)}
+                    </div>
+                  )}
                 </div>
 
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Structure</div>
-                  <div className="info-value">{session.structure || '—'}</div>
+                  {editing && draft ? (
+                    <input
+                      className="form-input"
+                      type="text"
+                      value={draft.structure}
+                      onChange={e => setField('structure', e.target.value)}
+                      style={{ marginTop: 4 }}
+                    />
+                  ) : (
+                    <div className="info-value">{s.structure || '—'}</div>
+                  )}
                 </div>
 
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Intervenant</div>
-                  <div className="info-value">{session.handler || '—'}</div>
+                  {editing && draft ? (
+                    <input
+                      className="form-input"
+                      type="text"
+                      value={draft.handler}
+                      onChange={e => setField('handler', e.target.value)}
+                      style={{ marginTop: 4 }}
+                    />
+                  ) : (
+                    <div className="info-value">{s.handler || '—'}</div>
+                  )}
                 </div>
 
               </div>
@@ -131,9 +222,18 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
           <div className="card">
             <div className="card-header"><div className="card-title">Notes</div></div>
             <div className="card-body">
-              {session.notes ? (
+              {editing && draft ? (
+                <textarea
+                  className="form-input"
+                  value={draft.notes}
+                  onChange={e => setField('notes', e.target.value)}
+                  rows={5}
+                  style={{ resize: 'vertical' }}
+                  placeholder="Observations, comportement de l'animal, retours des participants…"
+                />
+              ) : s.notes ? (
                 <p style={{ fontSize: 13, color: 'var(--slate-600)', lineHeight: 1.6, margin: 0 }}>
-                  {session.notes}
+                  {s.notes}
                 </p>
               ) : (
                 <p style={{ fontSize: 13, color: 'var(--slate-400)', fontStyle: 'italic', margin: 0 }}>
@@ -178,7 +278,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
             </div>
           </div>
 
-          {/* Session ID */}
+          {/* Reference */}
           <div className="card">
             <div className="card-header"><div className="card-title">Référence</div></div>
             <div className="card-body">
