@@ -1,0 +1,248 @@
+import { useState, useEffect, useMemo } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebase.js'
+import type { Organization, OrgType, Session } from '../data/animals.js'
+
+const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
+  ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
+  ime:      { label: 'IME',      bg: '#e0e7ff', color: '#4338ca', icon: '🏫' },
+  clinique: { label: 'Clinique', bg: '#e0f2fe', color: '#0369a1', icon: '🏥' },
+  creche:   { label: 'Crèche',   bg: '#fff7ed', color: '#c2410c', icon: '🧸' },
+  hopital:  { label: 'Hôpital',  bg: '#fee2e2', color: '#b91c1c', icon: '🏥' },
+  ecole:    { label: 'École',    bg: '#fef9c3', color: '#a16207', icon: '🎒' },
+  autre:    { label: 'Autre',    bg: '#f1f5f9', color: '#475569', icon: '🏢' },
+}
+
+type FilterTab = 'all' | OrgType
+
+const ALL_TYPES: OrgType[] = ['ehpad', 'ime', 'clinique', 'creche', 'hopital', 'ecole', 'autre']
+
+function formatDate(iso: string): string {
+  const d = new Date(iso)
+  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) +
+    ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+interface Props {
+  onAddOrganization: () => void
+}
+
+export default function OrganizationsPage({ onAddOrganization }: Props) {
+  const [orgs,     setOrgs]     = useState<Organization[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [loading,  setLoading]  = useState(true)
+  const [filter,   setFilter]   = useState<FilterTab>('all')
+  const [search,   setSearch]   = useState('')
+
+  useEffect(() => {
+    const unsubOrgs = onSnapshot(collection(db, 'organizations'), snap => {
+      setOrgs(
+        snap.docs
+          .map(d => d.data() as Organization)
+          .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      )
+      setLoading(false)
+    })
+    const unsubSessions = onSnapshot(collection(db, 'sessions'), snap => {
+      setSessions(snap.docs.map(d => d.data() as Session))
+    })
+    return () => { unsubOrgs(); unsubSessions() }
+  }, [])
+
+  const typeCounts = useMemo(() => {
+    const counts: Partial<Record<OrgType, number>> = {}
+    for (const o of orgs) counts[o.type] = (counts[o.type] ?? 0) + 1
+    return counts
+  }, [orgs])
+
+  const filtered = useMemo(() => {
+    let data = orgs
+    if (filter !== 'all') data = data.filter(o => o.type === filter)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      data = data.filter(o =>
+        o.name.toLowerCase().includes(q) ||
+        o.address.toLowerCase().includes(q) ||
+        o.contact.toLowerCase().includes(q) ||
+        o.email.toLowerCase().includes(q)
+      )
+    }
+    return data
+  }, [orgs, filter, search])
+
+  const stats = useMemo(() => {
+    const now = new Date()
+    const map: Record<string, { sessionCount: number; nextSession: Session | null }> = {}
+    for (const org of orgs) {
+      const orgSessions = sessions.filter(s => s.structure === org.name)
+      const planned = orgSessions
+        .filter(s => s.status === 'planned' && new Date(s.date) > now)
+        .sort((a, b) => a.date.localeCompare(b.date))
+      map[org.id] = {
+        sessionCount: orgSessions.length,
+        nextSession:  planned[0] ?? null,
+      }
+    }
+    return map
+  }, [orgs, sessions])
+
+  if (loading) return (
+    <div className="empty-state">
+      <div className="empty-icon">🏥</div>
+      <div className="empty-title">Chargement…</div>
+    </div>
+  )
+
+  const activeCount   = orgs.filter(o => o.status === 'active').length
+  const inactiveCount = orgs.filter(o => o.status === 'inactive').length
+
+  return (
+    <>
+      <div className="page-header">
+        <div>
+          <h1 className="page-title">Structures</h1>
+          <p className="page-subtitle">
+            {orgs.length} structure{orgs.length !== 1 ? 's' : ''} · {activeCount} active{activeCount !== 1 ? 's' : ''}
+            {inactiveCount > 0 && ` · ${inactiveCount} inactive${inactiveCount !== 1 ? 's' : ''}`}
+          </p>
+        </div>
+        <button className="btn btn-primary" onClick={onAddOrganization}>+ Ajouter une structure</button>
+      </div>
+
+      <div className="table-wrapper" style={{ marginBottom: 'var(--sp-5)' }}>
+        <div className="table-toolbar">
+          <div className="search-bar" style={{ maxWidth: 280 }}>
+            <span className="search-icon">🔍</span>
+            <input
+              type="text"
+              placeholder="Nom, adresse, contact…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+          </div>
+          <div className="filter-bar" style={{ flex: 1 }}>
+            <div
+              className={`filter-chip${filter === 'all' ? ' active' : ''}`}
+              onClick={() => setFilter('all')}
+            >
+              Toutes
+              <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.65, marginLeft: 3 }}>{orgs.length}</span>
+            </div>
+            {ALL_TYPES.filter(t => typeCounts[t]).map(t => (
+              <div
+                key={t}
+                className={`filter-chip${filter === t ? ' active' : ''}`}
+                onClick={() => setFilter(t)}
+              >
+                {TYPE_META[t].label}
+                <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.65, marginLeft: 3 }}>{typeCounts[t]}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-icon">🏥</div>
+          <div className="empty-title">Aucune structure trouvée</div>
+          <div className="empty-text">
+            {search
+              ? `Aucun résultat pour « ${search} ». Essayez un autre terme.`
+              : 'Aucune structure dans cette catégorie.'}
+          </div>
+          {search && (
+            <button className="btn btn-secondary" onClick={() => setSearch('')}>Réinitialiser la recherche</button>
+          )}
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--sp-4)' }}>
+          {filtered.map(org => {
+            const { label, bg, color, icon } = TYPE_META[org.type]
+            const s = stats[org.id] ?? { sessionCount: 0, nextSession: null }
+            return (
+              <div key={org.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+
+                {/* Header */}
+                <div style={{ padding: 'var(--sp-4)', borderBottom: '1px solid var(--slate-100)' }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-3)' }}>
+                    <div style={{ fontSize: 32, lineHeight: 1, flexShrink: 0 }}>{icon}</div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap', marginBottom: 'var(--sp-1)' }}>
+                        <span style={{
+                          fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99,
+                          background: bg, color, letterSpacing: '0.04em',
+                        }}>
+                          {label}
+                        </span>
+                        {org.status === 'inactive' && (
+                          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--slate-400)' }}>Inactive</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--slate-900)', lineHeight: 1.2 }}>
+                        {org.name}
+                      </div>
+                    </div>
+                  </div>
+                  {org.address && (
+                    <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                      📍 {org.address}
+                    </div>
+                  )}
+                </div>
+
+                {/* Stats */}
+                <div style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--slate-100)', display: 'flex', gap: 'var(--sp-4)' }}>
+                  <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--slate-900)', lineHeight: 1 }}>{s.sessionCount}</div>
+                    <div style={{ fontSize: 10, color: 'var(--slate-400)', fontWeight: 600, marginTop: 2, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                      séance{s.sessionCount > 1 ? 's' : ''}
+                    </div>
+                  </div>
+                  <div style={{ width: 1, background: 'var(--slate-100)' }} />
+                  <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                    {s.nextSession ? (
+                      <>
+                        <div style={{ fontSize: 10, color: 'var(--slate-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prochaine</div>
+                        <div style={{ fontSize: 11, color: 'var(--green-600)', fontWeight: 600, marginTop: 2 }}>
+                          {formatDate(s.nextSession.date)}
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontSize: 11, color: 'var(--slate-400)', fontStyle: 'italic' }}>
+                        Aucune séance planifiée
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Contact */}
+                <div style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', flex: 1 }}>
+                  {org.contact && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                      <span style={{ fontSize: 13 }}>👤</span>
+                      <span style={{ fontSize: 12, color: 'var(--slate-700)', fontWeight: 600 }}>{org.contact}</span>
+                    </div>
+                  )}
+                  {org.phone && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                      <span style={{ fontSize: 13 }}>📞</span>
+                      <span style={{ fontSize: 12, color: 'var(--slate-600)' }}>{org.phone}</span>
+                    </div>
+                  )}
+                  {org.email && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
+                      <span style={{ fontSize: 13 }}>✉</span>
+                      <span style={{ fontSize: 12, color: 'var(--slate-500)', wordBreak: 'break-all' }}>{org.email}</span>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </>
+  )
+}
