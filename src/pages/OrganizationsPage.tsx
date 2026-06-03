@@ -25,9 +25,10 @@ function formatDate(iso: string): string {
 
 interface Props {
   onAddOrganization: () => void
+  onSelectOrganization: (id: string, name: string) => void
 }
 
-export default function OrganizationsPage({ onAddOrganization }: Props) {
+export default function OrganizationsPage({ onAddOrganization, onSelectOrganization }: Props) {
   const [orgs,     setOrgs]     = useState<Organization[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -163,8 +164,11 @@ export default function OrganizationsPage({ onAddOrganization }: Props) {
             return (
               <div key={org.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
 
-                {/* Header */}
-                <div style={{ padding: 'var(--sp-4)', borderBottom: '1px solid var(--slate-100)' }}>
+                {/* Header — click → detail */}
+                <div
+                  style={{ padding: 'var(--sp-4)', borderBottom: '1px solid var(--slate-100)', cursor: 'pointer' }}
+                  onClick={() => onSelectOrganization(org.id, org.name)}
+                >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-3)' }}>
                     <div style={{ fontSize: 32, lineHeight: 1, flexShrink: 0 }}>{icon}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>

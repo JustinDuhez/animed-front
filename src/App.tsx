@@ -11,6 +11,7 @@ import AddSessionPage from './pages/AddSessionPage.js'
 import SessionDetailPage from './pages/SessionDetailPage.js'
 import OrganizationsPage from './pages/OrganizationsPage.js'
 import AddOrganizationPage from './pages/AddOrganizationPage.js'
+import OrganizationDetailPage from './pages/OrganizationDetailPage.js'
 import PlaceholderPage from './pages/PlaceholderPage.js'
 import LoginPage from './pages/LoginPage.js'
 
@@ -23,7 +24,8 @@ function App() {
   const [addingAnimal, setAddingAnimal] = useState(false)
   const [addingSession, setAddingSession] = useState(false)
   const [selectedSession, setSelectedSession] = useState<{ id: string; label: string } | null>(null)
-  const [addingOrganization, setAddingOrganization] = useState(false)
+  const [addingOrganization,  setAddingOrganization]  = useState(false)
+  const [selectedOrganization, setSelectedOrganization] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
     return onAuthStateChanged(auth, u => setUser(u))
@@ -39,6 +41,7 @@ function App() {
     setAddingSession(false)
     setSelectedSession(null)
     setAddingOrganization(false)
+    setSelectedOrganization(null)
   }
 
   const extraCrumb =
@@ -47,7 +50,7 @@ function App() {
     : page === 'sessions'
       ? addingSession ? 'Nouvelle séance' : selectedSession ? selectedSession.label : undefined
     : page === 'structures'
-      ? addingOrganization ? 'Nouvelle structure' : undefined
+      ? addingOrganization ? 'Nouvelle structure' : selectedOrganization ? selectedOrganization.name : undefined
     : undefined
 
   return (
@@ -94,13 +97,23 @@ function App() {
           onSelectAnimal={(id, name) => { setPage('animals'); setSelectedAnimal({ id, name }) }}
         />
       )}
-      {page === 'structures' && !addingOrganization && (
-        <OrganizationsPage onAddOrganization={() => setAddingOrganization(true)} />
+      {page === 'structures' && !addingOrganization && !selectedOrganization && (
+        <OrganizationsPage
+          onAddOrganization={() => setAddingOrganization(true)}
+          onSelectOrganization={(id, name) => setSelectedOrganization({ id, name })}
+        />
       )}
       {page === 'structures' && addingOrganization && (
         <AddOrganizationPage
           onBack={() => setAddingOrganization(false)}
           onSaved={() => setAddingOrganization(false)}
+        />
+      )}
+      {page === 'structures' && selectedOrganization && !addingOrganization && (
+        <OrganizationDetailPage
+          id={selectedOrganization.id}
+          onBack={() => setSelectedOrganization(null)}
+          onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
         />
       )}
       {page === 'staff'      && <PlaceholderPage icon="🥼" title="Intervenants"  description="18 intervenants actifs · Tous ACACED" cta="Ajouter un intervenant" />}
