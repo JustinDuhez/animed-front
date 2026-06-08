@@ -3,6 +3,7 @@ import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import { seedAnimalsIfEmpty } from '../utils/seedAnimals.js'
 import { seedSessionsIfEmpty } from '../utils/seedSessions.js'
+import { seedOrganizationsIfEmpty } from '../utils/seedOrganizations.js'
 import type { Animal, Status } from '../data/animals.js'
 
 type FilterTab   = 'tous' | 'actif' | 'repos' | 'alerte'
@@ -59,6 +60,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
   useEffect(() => {
     seedAnimalsIfEmpty().catch(console.error)
     seedSessionsIfEmpty().catch(console.error)
+    seedOrganizationsIfEmpty().catch(console.error)
     const unsub = onSnapshot(collection(db, 'animals'), snap => {
       setAnimals(snap.docs.map(d => d.data() as Animal))
       setLoading(false)

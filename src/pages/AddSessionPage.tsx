@@ -1,7 +1,7 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Animal, Session } from '../data/animals.js'
+import type { Animal, Organization, Session } from '../data/animals.js'
 
 interface Props {
   onBack: () => void
@@ -9,20 +9,20 @@ interface Props {
 }
 
 export default function AddSessionPage({ onBack, onSaved }: Props) {
-  const [animals,         setAnimals]         = useState<Animal[]>([])
-  const [submitting,      setSubmitting]       = useState(false)
-  const [error,           setError]            = useState('')
+  const [animals,    setAnimals]    = useState<Animal[]>([])
+  const [orgs,       setOrgs]       = useState<Organization[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const [error,      setError]      = useState('')
 
-  const [animalId,        setAnimalId]         = useState('')
-  const [date,            setDate]             = useState('')
-  const [structureSelect, setStructureSelect]  = useState('')
-  const [structureCustom, setStructureCustom]  = useState('')
-  const [handler,         setHandler]          = useState('')
-  const [status,          setStatus]           = useState<Session['status']>('planned')
-  const [notes,           setNotes]            = useState('')
+  const [animalId,  setAnimalId]  = useState('')
+  const [date,      setDate]      = useState('')
+  const [structure, setStructure] = useState('')
+  const [handler,   setHandler]   = useState('')
+  const [status,    setStatus]    = useState<Session['status']>('planned')
+  const [notes,     setNotes]     = useState('')
 
   useEffect(() => {
-    return onSnapshot(collection(db, 'animals'), snap => {
+    const unsubAnimals = onSnapshot(collection(db, 'animals'), snap => {
       setAnimals(
         snap.docs
           .map(d => d.data() as Animal)
@@ -30,20 +30,23 @@ export default function AddSessionPage({ onBack, onSaved }: Props) {
           .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
       )
     })
+    const unsubOrgs = onSnapshot(collection(db, 'organizations'), snap => {
+      setOrgs(
+        snap.docs
+          .map(d => d.data() as Organization)
+          .filter(o => o.status === 'active')
+          .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      )
+    })
+    return () => { unsubAnimals(); unsubOrgs() }
   }, [])
-
-  const selectedAnimal = animals.find(a => a.id === animalId) ?? null
 
   function handleAnimalChange(id: string) {
     setAnimalId(id)
-    setStructureSelect('')
-    setStructureCustom('')
+    setStructure('')
     const animal = animals.find(a => a.id === id)
     setHandler(animal && animal.handler !== '—' ? animal.handler : '')
   }
-
-  const useCustomStructure = structureSelect === '__custom__' || (selectedAnimal?.establishments.length === 0)
-  const structure = useCustomStructure ? structureCustom : structureSelect
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -150,39 +153,16 @@ export default function AddSessionPage({ onBack, onSaved }: Props) {
 
                 <div className="form-field" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label">Structure <span className="form-required">*</span></label>
-                  {selectedAnimal && selectedAnimal.establishments.length > 0 ? (
-                    <>
-                      <select
-                        className="form-select"
-                        value={structureSelect}
-                        onChange={e => setStructureSelect(e.target.value)}
-                      >
-                        <option value="">— Sélectionner une structure —</option>
-                        {selectedAnimal.establishments.map(est => (
-                          <option key={est} value={est}>{est}</option>
-                        ))}
-                        <option value="__custom__">Autre (saisie libre)</option>
-                      </select>
-                      {useCustomStructure && (
-                        <input
-                          className="form-input"
-                          type="text"
-                          placeholder="Nom de la structure"
-                          value={structureCustom}
-                          onChange={e => setStructureCustom(e.target.value)}
-                          style={{ marginTop: 'var(--sp-2)' }}
-                        />
-                      )}
-                    </>
-                  ) : (
-                    <input
-                      className="form-input"
-                      type="text"
-                      placeholder="ex: EHPAD Les Jardins"
-                      value={structureCustom}
-                      onChange={e => setStructureCustom(e.target.value)}
-                    />
-                  )}
+                  <select
+                    className="form-select"
+                    value={structure}
+                    onChange={e => setStructure(e.target.value)}
+                  >
+                    <option value="">— Sélectionner une structure —</option>
+                    {orgs.map(o => (
+                      <option key={o.id} value={o.name}>{o.name}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="form-field" style={{ gridColumn: '1 / -1' }}>
