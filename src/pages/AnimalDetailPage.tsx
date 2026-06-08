@@ -21,12 +21,24 @@ const SESSION_STATUS: Record<Session['status'], { cls: string; label: string }> 
 
 const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️']
 
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatMonthHeading(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-')
+  return new Date(Number(year), Number(month) - 1, 1)
+    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+}
+
 interface Props {
   id: string
   onBack: () => void
+  onSelectSession: (id: string, label: string) => void
+  onAddSession: () => void
 }
 
-export default function AnimalDetailPage({ id, onBack }: Props) {
+export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [animal, setAnimal] = useState<Animal | null | undefined>(undefined)
   const [editing, setEditing] = useState(false)
@@ -400,8 +412,8 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                 <div style={{ display: 'flex', gap: 'var(--sp-3)', marginBottom: 'var(--sp-5)' }}>
                   {[
                     { value: String(sessionRecords.length), label: 'Séances totales' },
-                    { value: String(animal.sessions[new Date().toISOString().slice(0, 7)] ?? 0), label: 'Ce mois-ci' },
-                    { value: animal.lastSession,            label: 'Dernière séance' },
+                    { value: String(sessionRecords.filter(s => s.date.slice(0, 7) === new Date().toISOString().slice(0, 7)).length), label: 'Ce mois-ci' },
+                    { value: (r => r ? new Date(r.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—')(sessionRecords.find(s => s.status === 'completed')), label: 'Dernière séance' },
                   ].map(stat => (
                     <div key={stat.label} style={{ flex: 1, textAlign: 'center', padding: 'var(--sp-4)', background: 'var(--slate-50)', borderRadius: 'var(--radius)', border: '1px solid var(--slate-100)' }}>
                       <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--slate-900)' }}>{stat.value}</div>
@@ -419,29 +431,55 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                     <div className="empty-text">Les séances de {animal.name} apparaîtront ici.</div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-                    {sessionRecords.map(s => {
-                      const { cls, label } = SESSION_STATUS[s.status]
-                      return (
-                        <div key={s.id} style={{ padding: 'var(--sp-4)', border: '1px solid var(--slate-100)', borderRadius: 'var(--radius)', background: 'white' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate-900)' }}>
-                              {new Date(s.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                            <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: 'var(--sp-4)', fontSize: 12, color: 'var(--slate-600)' }}>
-                            {s.structure && <span>🏛 {s.structure}</span>}
-                            {s.handler   && <span>👤 {s.handler}</span>}
-                          </div>
-                          {s.notes && (
-                            <div style={{ marginTop: 'var(--sp-2)', fontSize: 12, color: 'var(--slate-500)', fontStyle: 'italic' }}>
-                              {s.notes}
-                            </div>
-                          )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
+                    {Object.entries(
+                      sessionRecords.reduce((map, s) => {
+                        const key = s.date.slice(0, 7)
+                        if (!map[key]) map[key] = []
+                        map[key].push(s)
+                        return map
+                      }, {} as Record<string, Session[]>)
+                    ).sort((a, b) => b[0].localeCompare(a[0])).map(([month, monthSessions]) => (
+                      <div key={month}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-3)' }}>
+                          {formatMonthHeading(month)}
                         </div>
-                      )
-                    })}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 'var(--sp-3)' }}>
+                          {monthSessions.map(s => {
+                            const { cls, label } = SESSION_STATUS[s.status]
+                            const d   = new Date(s.date)
+                            const now = new Date()
+                            return (
+                              <div key={s.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+                                <div
+                                  style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--slate-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}
+                                  onClick={() => onSelectSession(s.id, `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${formatTime(s.date)}`)}
+                                >
+                                  <div>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--slate-400)', textTransform: 'capitalize' }}>
+                                      {d.toLocaleDateString('fr-FR', { weekday: 'long' })}
+                                    </div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--slate-900)', lineHeight: 1.1 }}>
+                                      {d.getDate()} <span style={{ fontSize: 15, fontWeight: 600, textTransform: 'capitalize' }}>{d.toLocaleDateString('fr-FR', { month: 'long' })}</span>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 2 }}>{formatTime(s.date)}</div>
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--sp-1)' }}>
+                                    <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
+                                    {s.status === 'planned'   && d < now && <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date dépassée</span>}
+                                    {s.status === 'completed' && d > now && <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date future</span>}
+                                  </div>
+                                </div>
+                                <div style={{ padding: 'var(--sp-3) var(--sp-4)', flex: 1 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-700)' }}>{s.structure || '—'}</div>
+                                  <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 2 }}>{s.handler || '—'}</div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
@@ -460,40 +498,12 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
         {/* Right — sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
-          {/* Next session */}
+          {/* Schedule session */}
           <div className="card">
-            <div className="card-header"><div className="card-title">Prochaine séance</div></div>
             <div className="card-body">
-              {editing && draft ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-                  <div>
-                    <div className="info-label" style={{ marginBottom: 4 }}>Structure</div>
-                    <input className="form-input" type="text" placeholder="ex: EHPAD Les Jardins"
-                      value={draft.nextSession?.structure ?? ''}
-                      onChange={e => setField('nextSession', e.target.value ? { structure: e.target.value, date: draft.nextSession?.date ?? '' } : null)} />
-                  </div>
-                  <div>
-                    <div className="info-label" style={{ marginBottom: 4 }}>Date et heure</div>
-                    <input className="form-input" type="datetime-local"
-                      value={draft.nextSession?.date ?? ''}
-                      onChange={e => setField('nextSession', e.target.value ? { structure: draft.nextSession?.structure ?? '', date: e.target.value } : null)} />
-                  </div>
-                </div>
-              ) : d.nextSession ? (
-                <>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate-900)' }}>{d.nextSession.structure}</div>
-                  <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 3 }}>{d.nextSession.date}</div>
-                  <div style={{ marginTop: 'var(--sp-3)', display: 'flex', gap: 'var(--sp-2)' }}>
-                    <button className="btn btn-secondary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>Voir</button>
-                    <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>Modifier</button>
-                  </div>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', padding: 'var(--sp-3) 0' }}>
-                  <div style={{ fontSize: 12, color: 'var(--slate-400)', marginBottom: 'var(--sp-3)' }}>Aucune séance planifiée</div>
-                  <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }}>+ Planifier une séance</button>
-                </div>
-              )}
+              <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={onAddSession}>
+                + Planifier une séance
+              </button>
             </div>
           </div>
 

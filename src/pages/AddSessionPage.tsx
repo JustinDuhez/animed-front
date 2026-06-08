@@ -6,15 +6,16 @@ import type { Animal, Organization, Session } from '../data/animals.js'
 interface Props {
   onBack: () => void
   onSaved: () => void
+  preselectedAnimalId?: string
 }
 
-export default function AddSessionPage({ onBack, onSaved }: Props) {
+export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }: Props) {
   const [animals,    setAnimals]    = useState<Animal[]>([])
   const [orgs,       setOrgs]       = useState<Organization[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
 
-  const [animalId,  setAnimalId]  = useState('')
+  const [animalId,  setAnimalId]  = useState(preselectedAnimalId ?? '')
   const [date,      setDate]      = useState('')
   const [structure, setStructure] = useState('')
   const [handler,   setHandler]   = useState('')
@@ -40,6 +41,12 @@ export default function AddSessionPage({ onBack, onSaved }: Props) {
     })
     return () => { unsubAnimals(); unsubOrgs() }
   }, [])
+
+  useEffect(() => {
+    if (!preselectedAnimalId || animals.length === 0) return
+    const animal = animals.find(a => a.id === preselectedAnimalId)
+    if (animal && animal.handler !== '—') setHandler(animal.handler)
+  }, [animals])
 
   function handleAnimalChange(id: string) {
     setAnimalId(id)
