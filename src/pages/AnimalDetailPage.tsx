@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
-import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/firestore'
-import { db } from '../firebase.js'
-import type { Animal, Status, Vaccine, Session } from '../data/animals.js'
+import { useState, useEffect, useRef, type ChangeEvent } from 'react'
+import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, query, collection, where } from 'firebase/firestore'
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
+import { db, storage } from '../firebase.js'
+import type { Animal, AnimalDocument, Status, Vaccine, Session } from '../data/animals.js'
 
-type Tab = 'infos' | 'seances' | 'sante' | 'documents'
+type Tab = 'infos' | 'seances' | 'documents'
 
 
 const STATUS_BADGE: Record<Animal['status'], { cls: string; label: string }> = {
@@ -21,12 +22,24 @@ const SESSION_STATUS: Record<Session['status'], { cls: string; label: string }> 
 
 const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️']
 
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function formatMonthHeading(yearMonth: string): string {
+  const [year, month] = yearMonth.split('-')
+  return new Date(Number(year), Number(month) - 1, 1)
+    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
+}
+
 interface Props {
   id: string
   onBack: () => void
+  onSelectSession: (id: string, label: string) => void
+  onAddSession: () => void
 }
 
-export default function AnimalDetailPage({ id, onBack }: Props) {
+export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession }: Props) {
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [animal, setAnimal] = useState<Animal | null | undefined>(undefined)
   const [editing, setEditing] = useState(false)
@@ -35,6 +48,12 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
   const [saveError, setSaveError] = useState('')
   const [sessionRecords, setSessions] = useState<Session[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [documents, setDocuments] = useState<AnimalDocument[]>([])
+  const [docsLoading, setDocsLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     return onSnapshot(doc(db, 'animals', id), snap => {
@@ -52,6 +71,79 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
       setSessionsLoading(false)
     })
   }, [id])
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'animals', id, 'documents'), snap => {
+      setDocuments(
+        snap.docs
+          .map(d => d.data() as AnimalDocument)
+          .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
+      )
+      setDocsLoading(false)
+    })
+  }, [id])
+
+  async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    const docId = `doc-${Date.now()}`
+    const storagePath = `animals/${id}/documents/${docId}`
+    setUploading(true)
+    setUploadProgress(0)
+    setUploadError('')
+
+    try {
+      const task = uploadBytesResumable(ref(storage, storagePath), file)
+      await new Promise<void>((resolve, reject) => {
+        task.on('state_changed',
+          snap => setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
+          reject,
+          resolve
+        )
+      })
+      const url = await getDownloadURL(ref(storage, storagePath))
+      const adoc: AnimalDocument = {
+        id: docId,
+        name: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size,
+        url,
+        storagePath,
+        uploadedAt: new Date().toISOString(),
+      }
+      await setDoc(doc(db, 'animals', id, 'documents', docId), adoc)
+    } catch {
+      setUploadError('Erreur lors de l\'importation. Veuillez réessayer.')
+    } finally {
+      setUploading(false)
+      setUploadProgress(0)
+    }
+  }
+
+  async function handleDeleteDoc(adoc: AnimalDocument) {
+    if (!window.confirm(`Supprimer « ${adoc.name} » ?`)) return
+    try {
+      await deleteObject(ref(storage, adoc.storagePath))
+    } catch { /* file may already be gone */ }
+    await deleteDoc(doc(db, 'animals', id, 'documents', adoc.id))
+  }
+
+  function docIcon(mimeType: string): string {
+    if (mimeType === 'application/pdf') return '📄'
+    if (mimeType.startsWith('image/')) return '🖼️'
+    if (mimeType.includes('word') || mimeType.includes('document')) return '📝'
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('csv')) return '📊'
+    if (mimeType.startsWith('video/')) return '🎥'
+    return '📎'
+  }
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} o`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+  }
 
   function startEditing() {
     if (!animal) return
@@ -137,13 +229,11 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
   const d = editing && draft ? draft : animal
   const { cls: statusCls, label: statusLabel } = STATUS_BADGE[d.status]
   const hasAlert = d.status === 'alerte' || !d.vaccineOk
-  const expiredVaccines = animal.vaccines.filter(v => v.status === 'expired' || v.status === 'soon')
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'infos',     label: 'Informations' },
     { key: 'seances',   label: 'Séances',   count: sessionsLoading ? undefined : sessionRecords.length || undefined },
-    { key: 'sante',     label: 'Santé',     count: expiredVaccines.length || undefined },
-    { key: 'documents', label: 'Documents' },
+    { key: 'documents', label: 'Documents', count: docsLoading ? undefined : documents.length || undefined },
   ]
 
   return (
@@ -163,8 +253,6 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
             </>
           ) : (
             <>
-              <button className="btn btn-secondary">📋 Protocole</button>
-              <button className="btn btn-secondary">📤 Exporter</button>
               <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>
             </>
           )}
@@ -313,15 +401,13 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                   </div>
 
                   <div className="info-tile">
-                    <div className="info-label">Vermifuge (jours restants)</div>
+                    <div className="info-label">Vermifuge (dernier traitement)</div>
                     {editing && draft
-                      ? <input className="form-input" type="number" min="0" value={draft.vermifugeDaysLeft ?? ''} onChange={e => setField('vermifugeDaysLeft', e.target.value === '' ? null : parseInt(e.target.value, 10))} style={{ marginTop: 4 }} />
+                      ? <input className="form-input" type="date" value={draft.vermifugeLastDate === '—' ? '' : draft.vermifugeLastDate} onChange={e => setField('vermifugeLastDate', e.target.value || '—')} style={{ marginTop: 4 }} />
                       : <div className="info-value" style={{ fontSize: 13 }}>
-                          {d.vermifugeDaysLeft === null
+                          {!d.vermifugeLastDate || d.vermifugeLastDate === '—'
                             ? <span style={{ color: 'var(--slate-400)' }}>—</span>
-                            : d.vermifugeDaysLeft < 30
-                            ? <span style={{ color: 'var(--amber-600)' }}>⚠ Dans {d.vermifugeDaysLeft} jours</span>
-                            : <span style={{ color: 'var(--green-600)' }}>✓ Dans {d.vermifugeDaysLeft} jours</span>}
+                            : new Date(d.vermifugeLastDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </div>}
                   </div>
 
@@ -400,8 +486,8 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                 <div style={{ display: 'flex', gap: 'var(--sp-3)', marginBottom: 'var(--sp-5)' }}>
                   {[
                     { value: String(sessionRecords.length), label: 'Séances totales' },
-                    { value: String(animal.sessions[new Date().toISOString().slice(0, 7)] ?? 0), label: 'Ce mois-ci' },
-                    { value: animal.lastSession,            label: 'Dernière séance' },
+                    { value: String(sessionRecords.filter(s => s.date.slice(0, 7) === new Date().toISOString().slice(0, 7)).length), label: 'Ce mois-ci' },
+                    { value: (r => r ? new Date(r.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : '—')(sessionRecords.find(s => s.status === 'completed')), label: 'Dernière séance' },
                   ].map(stat => (
                     <div key={stat.label} style={{ flex: 1, textAlign: 'center', padding: 'var(--sp-4)', background: 'var(--slate-50)', borderRadius: 'var(--radius)', border: '1px solid var(--slate-100)' }}>
                       <div style={{ fontSize: 20, fontWeight: 800, color: 'var(--slate-900)' }}>{stat.value}</div>
@@ -419,40 +505,110 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
                     <div className="empty-text">Les séances de {animal.name} apparaîtront ici.</div>
                   </div>
                 ) : (
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-                    {sessionRecords.map(s => {
-                      const { cls, label } = SESSION_STATUS[s.status]
-                      return (
-                        <div key={s.id} style={{ padding: 'var(--sp-4)', border: '1px solid var(--slate-100)', borderRadius: 'var(--radius)', background: 'white' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--sp-2)' }}>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate-900)' }}>
-                              {new Date(s.date).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                            </div>
-                            <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
-                          </div>
-                          <div style={{ display: 'flex', gap: 'var(--sp-4)', fontSize: 12, color: 'var(--slate-600)' }}>
-                            {s.structure && <span>🏛 {s.structure}</span>}
-                            {s.handler   && <span>👤 {s.handler}</span>}
-                          </div>
-                          {s.notes && (
-                            <div style={{ marginTop: 'var(--sp-2)', fontSize: 12, color: 'var(--slate-500)', fontStyle: 'italic' }}>
-                              {s.notes}
-                            </div>
-                          )}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
+                    {Object.entries(
+                      sessionRecords.reduce((map, s) => {
+                        const key = s.date.slice(0, 7)
+                        if (!map[key]) map[key] = []
+                        map[key].push(s)
+                        return map
+                      }, {} as Record<string, Session[]>)
+                    ).sort((a, b) => b[0].localeCompare(a[0])).map(([month, monthSessions]) => (
+                      <div key={month}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: 'var(--slate-400)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 'var(--sp-3)' }}>
+                          {formatMonthHeading(month)}
                         </div>
-                      )
-                    })}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 'var(--sp-3)' }}>
+                          {monthSessions.map(s => {
+                            const { cls, label } = SESSION_STATUS[s.status]
+                            const d   = new Date(s.date)
+                            const now = new Date()
+                            return (
+                              <div key={s.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+                                <div
+                                  style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--slate-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}
+                                  onClick={() => onSelectSession(s.id, `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${formatTime(s.date)}`)}
+                                >
+                                  <div>
+                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--slate-400)', textTransform: 'capitalize' }}>
+                                      {d.toLocaleDateString('fr-FR', { weekday: 'long' })}
+                                    </div>
+                                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--slate-900)', lineHeight: 1.1 }}>
+                                      {d.getDate()} <span style={{ fontSize: 15, fontWeight: 600, textTransform: 'capitalize' }}>{d.toLocaleDateString('fr-FR', { month: 'long' })}</span>
+                                    </div>
+                                    <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 2 }}>{formatTime(s.date)}</div>
+                                  </div>
+                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--sp-1)' }}>
+                                    <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
+                                    {s.status === 'planned'   && d < now && <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date dépassée</span>}
+                                    {s.status === 'completed' && d > now && <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date future</span>}
+                                  </div>
+                                </div>
+                                <div style={{ padding: 'var(--sp-3) var(--sp-4)', flex: 1 }}>
+                                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-700)' }}>{s.structure || '—'}</div>
+                                  <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 2 }}>{s.handler || '—'}</div>
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 )}
               </>
             )}
 
-            {activeTab !== 'infos' && activeTab !== 'seances' && (
-              <div className="empty-state" style={{ padding: 'var(--sp-10) var(--sp-6)' }}>
-                <div className="empty-icon">{activeTab === 'sante' ? '🩺' : '📄'}</div>
-                <div className="empty-title">Section en construction</div>
-                <div className="empty-text">Cette section sera disponible prochainement.</div>
-              </div>
+            {activeTab === 'documents' && (
+              <>
+                <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleUpload} />
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--sp-4)' }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                    {uploading ? `Importation… ${uploadProgress}%` : '⬆ Importer un document'}
+                  </button>
+                </div>
+
+                {uploading && (
+                  <div style={{ marginBottom: 'var(--sp-4)', height: 4, background: 'var(--slate-100)', borderRadius: 9999, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${uploadProgress}%`, background: 'var(--green-500)', transition: 'width 0.2s' }} />
+                  </div>
+                )}
+
+                {uploadError && (
+                  <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-4)' }}>
+                    <span className="alert-icon">✕</span>
+                    <div className="alert-body"><div className="alert-title">{uploadError}</div></div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setUploadError('')}>Fermer</button>
+                  </div>
+                )}
+
+                {docsLoading ? (
+                  <div style={{ textAlign: 'center', padding: 'var(--sp-6)', color: 'var(--slate-400)', fontSize: 13 }}>Chargement…</div>
+                ) : documents.length === 0 ? (
+                  <div className="empty-state" style={{ padding: 'var(--sp-10) var(--sp-6)' }}>
+                    <div className="empty-icon">📄</div>
+                    <div className="empty-title">Aucun document</div>
+                    <div className="empty-text">Importez des documents pour {animal.name} — carnets de santé, certificats, résultats d'analyses…</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                    {documents.map(adoc => (
+                      <div key={adoc.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', border: '1px solid var(--slate-100)', borderRadius: 'var(--radius)', background: 'var(--slate-50)' }}>
+                        <div style={{ fontSize: 22, lineHeight: 1 }}>{docIcon(adoc.mimeType)}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-800)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adoc.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 2 }}>
+                            {formatSize(adoc.size)} · {new Date(adoc.uploadedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </div>
+                        </div>
+                        <a href={adoc.url} target="_blank" rel="noreferrer" className="td-action-btn" title="Télécharger">⬇</a>
+                        <button className="td-action-btn danger" title="Supprimer" onClick={() => handleDeleteDoc(adoc)}>🗑</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -460,40 +616,12 @@ export default function AnimalDetailPage({ id, onBack }: Props) {
         {/* Right — sidebar */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
-          {/* Next session */}
+          {/* Schedule session */}
           <div className="card">
-            <div className="card-header"><div className="card-title">Prochaine séance</div></div>
             <div className="card-body">
-              {editing && draft ? (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-                  <div>
-                    <div className="info-label" style={{ marginBottom: 4 }}>Structure</div>
-                    <input className="form-input" type="text" placeholder="ex: EHPAD Les Jardins"
-                      value={draft.nextSession?.structure ?? ''}
-                      onChange={e => setField('nextSession', e.target.value ? { structure: e.target.value, date: draft.nextSession?.date ?? '' } : null)} />
-                  </div>
-                  <div>
-                    <div className="info-label" style={{ marginBottom: 4 }}>Date et heure</div>
-                    <input className="form-input" type="datetime-local"
-                      value={draft.nextSession?.date ?? ''}
-                      onChange={e => setField('nextSession', e.target.value ? { structure: draft.nextSession?.structure ?? '', date: e.target.value } : null)} />
-                  </div>
-                </div>
-              ) : d.nextSession ? (
-                <>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate-900)' }}>{d.nextSession.structure}</div>
-                  <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 3 }}>{d.nextSession.date}</div>
-                  <div style={{ marginTop: 'var(--sp-3)', display: 'flex', gap: 'var(--sp-2)' }}>
-                    <button className="btn btn-secondary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>Voir</button>
-                    <button className="btn btn-primary btn-sm" style={{ flex: 1, justifyContent: 'center' }}>Modifier</button>
-                  </div>
-                </>
-              ) : (
-                <div style={{ textAlign: 'center', padding: 'var(--sp-3) 0' }}>
-                  <div style={{ fontSize: 12, color: 'var(--slate-400)', marginBottom: 'var(--sp-3)' }}>Aucune séance planifiée</div>
-                  <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }}>+ Planifier une séance</button>
-                </div>
-              )}
+              <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={onAddSession}>
+                + Planifier une séance
+              </button>
             </div>
           </div>
 

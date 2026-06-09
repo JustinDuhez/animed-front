@@ -30,6 +30,9 @@
       "npm run build"
     ]
   },
+  "storage": {
+    "rules": "storage.rules"
+  },
   "firestore": {
     "database": "(default)",
     "location": "eur3",
