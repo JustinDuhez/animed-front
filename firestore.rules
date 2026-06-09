@@ -26,7 +26,7 @@ service cloud.firestore {
         'id', 'emoji', 'name', 'species', 'status', 'vaccineOk',
         'sessions', 'lastSession', 'handler', 'gender', 'birthDate',
         'weight', 'chipId', 'lastVetCheck', 'antiparasiteOk',
-        'antiparasiteInfo', 'vermifugeDaysLeft', 'establishments',
+        'antiparasiteInfo', 'vermifugeLastDate', 'establishments',
         'nextSession', 'vaccines'
       ];
       return hasOnlyAllowedFields(allowedFields)
@@ -47,7 +47,7 @@ service cloud.firestore {
           && d.lastVetCheck is string && d.lastVetCheck.size() <= 50
           && d.antiparasiteOk is bool
           && d.antiparasiteInfo is string && d.antiparasiteInfo.size() <= 200
-          && (d.vermifugeDaysLeft == null || d.vermifugeDaysLeft is number)
+          && d.vermifugeLastDate is string && d.vermifugeLastDate.size() <= 20
           && d.establishments is list && d.establishments.size() <= 20
           && d.vaccines is list && d.vaccines.size() <= 10
           && (d.nextSession == null || d.nextSession is map);
@@ -100,6 +100,12 @@ service cloud.firestore {
                     && request.resource.data.id == resource.data.id;
 
       allow delete: if isAuthenticated();
+
+      match /documents/{docId} {
+        allow read: if isAuthenticated();
+        allow create: if isAuthenticated() && request.resource.data.id == docId;
+        allow delete: if isAuthenticated();
+      }
     }
 
     // ── Sessions collection ───────────────────────────────────────

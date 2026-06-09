@@ -1,5 +1,8 @@
 import { useState, useRef, useEffect } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from '../../firebase.js'
 import type { User } from 'firebase/auth'
+import type { Animal } from '../../data/animals.js'
 
 interface NavItem {
   icon: string
@@ -19,7 +22,7 @@ const NAV: NavSection[] = [
     label: 'Gestion',
     items: [
       { icon: '🏠', label: 'Tableau de bord', key: 'dashboard' },
-      { icon: '🐾', label: 'Animaux',          key: 'animals',    count: 47 },
+      { icon: '🐾', label: 'Animaux',          key: 'animals' },
       { icon: '📋', label: 'Séances',          key: 'sessions' },
       { icon: '🏥', label: 'Structures',       key: 'structures' },
     ],
@@ -28,7 +31,7 @@ const NAV: NavSection[] = [
     label: 'Compte',
     items: [
       { icon: '🥼', label: 'Intervenants', key: 'staff' },
-      { icon: '⚠️',  label: 'Alertes',     key: 'alerts', badge: 5 },
+      { icon: '⚠️',  label: 'Alertes',     key: 'alerts' },
     ],
   },
   {
@@ -65,7 +68,18 @@ interface Props {
 
 export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Props) {
   const [open, setOpen] = useState(false)
+  const [alertCount, setAlertCount] = useState(0)
   const footerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'animals'), snap => {
+      const count = snap.docs.filter(d => {
+        const a = d.data() as Animal
+        return a.status === 'alerte' || !a.vaccineOk
+      }).length
+      setAlertCount(count)
+    })
+  }, [])
 
   useEffect(() => {
     if (!open) return
@@ -100,6 +114,9 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
               >
                 <span className="sb-icon">{item.icon}</span>
                 {item.label}
+                {item.key === 'animals' && alertCount > 0 && (
+                  <span className="sb-badge">{alertCount}</span>
+                )}
                 {item.badge !== undefined && (
                   <span className="sb-badge">{item.badge}</span>
                 )}

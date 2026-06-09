@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
-import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/firestore'
-import { db } from '../firebase.js'
-import type { Animal, Status, Vaccine, Session } from '../data/animals.js'
+import { useState, useEffect, useRef, type ChangeEvent } from 'react'
+import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, query, collection, where } from 'firebase/firestore'
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
+import { db, storage } from '../firebase.js'
+import type { Animal, AnimalDocument, Status, Vaccine, Session } from '../data/animals.js'
 
-type Tab = 'infos' | 'seances' | 'sante' | 'documents'
+type Tab = 'infos' | 'seances' | 'documents'
 
 
 const STATUS_BADGE: Record<Animal['status'], { cls: string; label: string }> = {
@@ -47,6 +48,12 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   const [saveError, setSaveError] = useState('')
   const [sessionRecords, setSessions] = useState<Session[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(true)
+  const [documents, setDocuments] = useState<AnimalDocument[]>([])
+  const [docsLoading, setDocsLoading] = useState(true)
+  const [uploading, setUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadError, setUploadError] = useState('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     return onSnapshot(doc(db, 'animals', id), snap => {
@@ -64,6 +71,79 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
       setSessionsLoading(false)
     })
   }, [id])
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'animals', id, 'documents'), snap => {
+      setDocuments(
+        snap.docs
+          .map(d => d.data() as AnimalDocument)
+          .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
+      )
+      setDocsLoading(false)
+    })
+  }, [id])
+
+  async function handleUpload(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (fileInputRef.current) fileInputRef.current.value = ''
+
+    const docId = `doc-${Date.now()}`
+    const storagePath = `animals/${id}/documents/${docId}`
+    setUploading(true)
+    setUploadProgress(0)
+    setUploadError('')
+
+    try {
+      const task = uploadBytesResumable(ref(storage, storagePath), file)
+      await new Promise<void>((resolve, reject) => {
+        task.on('state_changed',
+          snap => setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
+          reject,
+          resolve
+        )
+      })
+      const url = await getDownloadURL(ref(storage, storagePath))
+      const adoc: AnimalDocument = {
+        id: docId,
+        name: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size,
+        url,
+        storagePath,
+        uploadedAt: new Date().toISOString(),
+      }
+      await setDoc(doc(db, 'animals', id, 'documents', docId), adoc)
+    } catch {
+      setUploadError('Erreur lors de l\'importation. Veuillez réessayer.')
+    } finally {
+      setUploading(false)
+      setUploadProgress(0)
+    }
+  }
+
+  async function handleDeleteDoc(adoc: AnimalDocument) {
+    if (!window.confirm(`Supprimer « ${adoc.name} » ?`)) return
+    try {
+      await deleteObject(ref(storage, adoc.storagePath))
+    } catch { /* file may already be gone */ }
+    await deleteDoc(doc(db, 'animals', id, 'documents', adoc.id))
+  }
+
+  function docIcon(mimeType: string): string {
+    if (mimeType === 'application/pdf') return '📄'
+    if (mimeType.startsWith('image/')) return '🖼️'
+    if (mimeType.includes('word') || mimeType.includes('document')) return '📝'
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('csv')) return '📊'
+    if (mimeType.startsWith('video/')) return '🎥'
+    return '📎'
+  }
+
+  function formatSize(bytes: number): string {
+    if (bytes < 1024) return `${bytes} o`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+  }
 
   function startEditing() {
     if (!animal) return
@@ -149,13 +229,11 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   const d = editing && draft ? draft : animal
   const { cls: statusCls, label: statusLabel } = STATUS_BADGE[d.status]
   const hasAlert = d.status === 'alerte' || !d.vaccineOk
-  const expiredVaccines = animal.vaccines.filter(v => v.status === 'expired' || v.status === 'soon')
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'infos',     label: 'Informations' },
     { key: 'seances',   label: 'Séances',   count: sessionsLoading ? undefined : sessionRecords.length || undefined },
-    { key: 'sante',     label: 'Santé',     count: expiredVaccines.length || undefined },
-    { key: 'documents', label: 'Documents' },
+    { key: 'documents', label: 'Documents', count: docsLoading ? undefined : documents.length || undefined },
   ]
 
   return (
@@ -175,8 +253,6 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
             </>
           ) : (
             <>
-              <button className="btn btn-secondary">📋 Protocole</button>
-              <button className="btn btn-secondary">📤 Exporter</button>
               <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>
             </>
           )}
@@ -325,15 +401,13 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                   </div>
 
                   <div className="info-tile">
-                    <div className="info-label">Vermifuge (jours restants)</div>
+                    <div className="info-label">Vermifuge (dernier traitement)</div>
                     {editing && draft
-                      ? <input className="form-input" type="number" min="0" value={draft.vermifugeDaysLeft ?? ''} onChange={e => setField('vermifugeDaysLeft', e.target.value === '' ? null : parseInt(e.target.value, 10))} style={{ marginTop: 4 }} />
+                      ? <input className="form-input" type="date" value={draft.vermifugeLastDate === '—' ? '' : draft.vermifugeLastDate} onChange={e => setField('vermifugeLastDate', e.target.value || '—')} style={{ marginTop: 4 }} />
                       : <div className="info-value" style={{ fontSize: 13 }}>
-                          {d.vermifugeDaysLeft === null
+                          {!d.vermifugeLastDate || d.vermifugeLastDate === '—'
                             ? <span style={{ color: 'var(--slate-400)' }}>—</span>
-                            : d.vermifugeDaysLeft < 30
-                            ? <span style={{ color: 'var(--amber-600)' }}>⚠ Dans {d.vermifugeDaysLeft} jours</span>
-                            : <span style={{ color: 'var(--green-600)' }}>✓ Dans {d.vermifugeDaysLeft} jours</span>}
+                            : new Date(d.vermifugeLastDate).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </div>}
                   </div>
 
@@ -485,12 +559,56 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
               </>
             )}
 
-            {activeTab !== 'infos' && activeTab !== 'seances' && (
-              <div className="empty-state" style={{ padding: 'var(--sp-10) var(--sp-6)' }}>
-                <div className="empty-icon">{activeTab === 'sante' ? '🩺' : '📄'}</div>
-                <div className="empty-title">Section en construction</div>
-                <div className="empty-text">Cette section sera disponible prochainement.</div>
-              </div>
+            {activeTab === 'documents' && (
+              <>
+                <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleUpload} />
+
+                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--sp-4)' }}>
+                  <button className="btn btn-primary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                    {uploading ? `Importation… ${uploadProgress}%` : '⬆ Importer un document'}
+                  </button>
+                </div>
+
+                {uploading && (
+                  <div style={{ marginBottom: 'var(--sp-4)', height: 4, background: 'var(--slate-100)', borderRadius: 9999, overflow: 'hidden' }}>
+                    <div style={{ height: '100%', width: `${uploadProgress}%`, background: 'var(--green-500)', transition: 'width 0.2s' }} />
+                  </div>
+                )}
+
+                {uploadError && (
+                  <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-4)' }}>
+                    <span className="alert-icon">✕</span>
+                    <div className="alert-body"><div className="alert-title">{uploadError}</div></div>
+                    <button className="btn btn-secondary btn-sm" onClick={() => setUploadError('')}>Fermer</button>
+                  </div>
+                )}
+
+                {docsLoading ? (
+                  <div style={{ textAlign: 'center', padding: 'var(--sp-6)', color: 'var(--slate-400)', fontSize: 13 }}>Chargement…</div>
+                ) : documents.length === 0 ? (
+                  <div className="empty-state" style={{ padding: 'var(--sp-10) var(--sp-6)' }}>
+                    <div className="empty-icon">📄</div>
+                    <div className="empty-title">Aucun document</div>
+                    <div className="empty-text">Importez des documents pour {animal.name} — carnets de santé, certificats, résultats d'analyses…</div>
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                    {documents.map(adoc => (
+                      <div key={adoc.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-3) var(--sp-4)', border: '1px solid var(--slate-100)', borderRadius: 'var(--radius)', background: 'var(--slate-50)' }}>
+                        <div style={{ fontSize: 22, lineHeight: 1 }}>{docIcon(adoc.mimeType)}</div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-800)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adoc.name}</div>
+                          <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 2 }}>
+                            {formatSize(adoc.size)} · {new Date(adoc.uploadedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                          </div>
+                        </div>
+                        <a href={adoc.url} target="_blank" rel="noreferrer" className="td-action-btn" title="Télécharger">⬇</a>
+                        <button className="td-action-btn danger" title="Supprimer" onClick={() => handleDeleteDoc(adoc)}>🗑</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>

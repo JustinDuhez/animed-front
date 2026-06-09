@@ -36,7 +36,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
 
   const [antiparasiteOk, setAntiparasiteOk] = useState(false)
   const [antiparasiteInfo, setAntiparasiteInfo] = useState('')
-  const [vermifugeDaysLeft, setVermifugeDaysLeft] = useState('')
+  const [vermifugeLastDate, setVermifugeLastDate] = useState('')
 
   const [vaccines, setVaccines] = useState<Vaccine[]>([])
   const [establishments, setEstablishments] = useState<string[]>([])
@@ -93,7 +93,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
         vaccineOk,
         antiparasiteOk,
         antiparasiteInfo: antiparasiteInfo.trim() || 'Non renseigné',
-        vermifugeDaysLeft: vermifugeDaysLeft !== '' ? parseInt(vermifugeDaysLeft, 10) : null,
+        vermifugeLastDate: vermifugeLastDate.trim() || '—',
         establishments: establishments.filter(e => e.trim()),
         nextSession: nextSessionStructure.trim() && nextSessionDate.trim()
           ? { structure: nextSessionStructure.trim(), date: nextSessionDate.trim() }
@@ -225,8 +225,8 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
                     <input className="form-input" type="date" value={lastVetCheck} onChange={e => setLastVetCheck(e.target.value)} />
                   </div>
                   <div className="form-field">
-                    <label className="form-label">Vermifuge (jours restants)</label>
-                    <input className="form-input" type="number" min="0" placeholder="Laisser vide si inconnu" value={vermifugeDaysLeft} onChange={e => setVermifugeDaysLeft(e.target.value)} />
+                    <label className="form-label">Vermifuge (dernier traitement)</label>
+                    <input className="form-input" type="date" value={vermifugeLastDate} onChange={e => setVermifugeLastDate(e.target.value)} />
                   </div>
                   <div className="form-field" style={{ gridColumn: '1 / -1' }}>
                     <label className="form-checkbox-row">

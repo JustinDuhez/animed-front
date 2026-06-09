@@ -165,10 +165,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
           <h1 className="page-title">Animaux</h1>
           <p className="page-subtitle">{animals.length} animaux enregistrés · {counts.alerte} alertes sanitaires</p>
         </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          <button className="btn btn-secondary">⬇ Exporter CSV</button>
-          <button className="btn btn-primary" onClick={onAddAnimal}>+ Ajouter un animal</button>
-        </div>
+        <button className="btn btn-primary" onClick={onAddAnimal}>+ Ajouter un animal</button>
       </div>
 
       {counts.alerte > 0 && filter !== 'alerte' && (
