@@ -24,7 +24,8 @@ function App() {
   const [addingAnimal, setAddingAnimal] = useState(false)
   const [addingSession, setAddingSession] = useState(false)
   const [selectedSession, setSelectedSession] = useState<{ id: string; label: string } | null>(null)
-  const [addingOrganization,  setAddingOrganization]  = useState(false)
+  const [addingOrganization,    setAddingOrganization]    = useState(false)
+  const [sessionPreselectedAnimalId, setSessionPreselectedAnimalId] = useState<string | null>(null)
   const [selectedOrganization, setSelectedOrganization] = useState<{ id: string; name: string } | null>(null)
 
   useEffect(() => {
@@ -42,6 +43,7 @@ function App() {
     setSelectedSession(null)
     setAddingOrganization(false)
     setSelectedOrganization(null)
+    setSessionPreselectedAnimalId(null)
   }
 
   const extraCrumb =
@@ -75,7 +77,12 @@ function App() {
         />
       )}
       {page === 'animals' && selectedAnimal && !addingAnimal && (
-        <AnimalDetailPage id={selectedAnimal.id} onBack={() => setSelectedAnimal(null)} />
+        <AnimalDetailPage
+          id={selectedAnimal.id}
+          onBack={() => setSelectedAnimal(null)}
+          onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
+          onAddSession={() => { setSessionPreselectedAnimalId(selectedAnimal.id); setPage('sessions'); setAddingSession(true) }}
+        />
       )}
       {page === 'sessions' && !addingSession && !selectedSession && (
         <SessionsPage
@@ -86,8 +93,9 @@ function App() {
       )}
       {page === 'sessions' && addingSession && (
         <AddSessionPage
-          onBack={() => setAddingSession(false)}
-          onSaved={() => setAddingSession(false)}
+          onBack={() => { setAddingSession(false); setSessionPreselectedAnimalId(null) }}
+          onSaved={() => { setAddingSession(false); setSessionPreselectedAnimalId(null) }}
+          preselectedAnimalId={sessionPreselectedAnimalId ?? undefined}
         />
       )}
       {page === 'sessions' && selectedSession && !addingSession && (
