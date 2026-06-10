@@ -1,192 +1,198 @@
-const KPI_CARDS = [
-  {
-    icon: '🐾', iconColor: 'green',
-    value: '47', label: 'Animaux actifs',
-    sub: '+3 depuis le mois dernier',
-    trend: 'up', trendLabel: '↑ +3',
-    sparks: [40, 55, 48, 70, 60, 85, 100],
-    sparkColor: undefined,
-  },
-  {
-    icon: '📋', iconColor: 'terra',
-    value: '284', label: 'Séances ce trimestre',
-    sub: '568h cumulées · 31 structures',
-    trend: 'up', trendLabel: '↑ +12%',
-    sparks: [50, 65, 72, 58, 80, 68, 100],
-    sparkColor: 'var(--terra-300)',
-  },
-  {
-    icon: '⚠️', iconColor: 'amber',
-    value: '5', label: 'Alertes sanitaires',
-    sub: '3 vaccins · 2 visites vétérinaires',
-    trend: 'down', trendLabel: '↑ +2',
-    sparks: null,
-  },
-  {
-    icon: '🏥', iconColor: 'blue',
-    value: '31', label: 'Structures partenaires',
-    sub: 'EHPAD, IME, Hôpitaux, Crèches',
-    trend: 'flat', trendLabel: '→ =',
-    sparks: null,
-  },
-  {
-    icon: '🥼', iconColor: 'green',
-    value: '18', label: 'Intervenants actifs',
-    sub: 'Tous certifiés ACACED',
-    trend: 'up', trendLabel: '↑ +5',
-    sparks: null,
-  },
-  {
-    icon: '⏱', iconColor: 'terra',
-    value: '2,4h', label: 'Durée moyenne / séance',
-    sub: 'Min 1h · Max 4h',
-    trend: 'up', trendLabel: '↑ +0.4h',
-    sparks: null,
-  },
-]
+import { useState, useEffect, useMemo } from 'react'
+import { collection, onSnapshot } from 'firebase/firestore'
+import { db } from '../firebase.js'
+import type { Animal } from '../data/animal.js'
+import type { Session } from '../data/session.js'
+import type { Organization } from '../data/organization.js'
+import KpiCard from '../components/ui/KpiCard.js'
+import SessionCard from '../components/ui/SessionCard.js'
 
-const ANIMALS = [
-  { emoji: '🐕', name: 'Martin',   id: 'MAR-00043', species: 'Labrador',      status: 'actif',    vaccine: 'alerte',   sessions: 6,  lastSession: '10 avr. 2025',  handler: 'S. Durand' },
-  { emoji: '🐈', name: 'Luna',     id: 'LUN-00021', species: 'Persan',        status: 'actif',    vaccine: 'actif',    sessions: 4,  lastSession: '8 avr. 2025',   handler: 'M. Petit' },
-  { emoji: '🐇', name: 'Cannelle', id: 'CAN-00012', species: 'Lapin angora',  status: 'repos',    vaccine: 'actif',    sessions: 2,  lastSession: '1 avr. 2025',   handler: 'L. Martin' },
-  { emoji: '🐴', name: 'Tao',      id: 'TAO-00007', species: 'Poney Shetland',status: 'alerte',   vaccine: 'alerte',   sessions: 1,  lastSession: '22 mars 2025',  handler: 'A. Rossi' },
-  { emoji: '🦜', name: 'Pixel',    id: 'PIX-00033', species: 'Perruche',      status: 'retraite', vaccine: 'actif',    sessions: 0,  lastSession: '—',              handler: '—' },
-]
-
-const SESSIONS = [
-  { structure: 'EHPAD Les Jardins', date: 'Lun 28 avr · 14h–16h', animal: '🐕 Martin', handler: 'S. Durand', status: 'info', statusLabel: 'Planifiée' },
-  { structure: 'IME Saint-Joseph',  date: 'Mer 03 mai · 10h',      animal: '🐕 Martin', handler: 'A. Rossi',  status: 'alerte', statusLabel: 'Alerte' },
-  { structure: 'Clinique Pasteur',  date: 'Ven 30 mai · 09h',      animal: '🐈 Luna',   handler: 'M. Petit',  status: 'repos', statusLabel: 'En attente' },
-]
-
-const statusBadge = (s: string) => {
-  const map: Record<string, string> = { actif: 'badge-actif', repos: 'badge-repos', alerte: 'badge-alerte', retraite: 'badge-retraite', info: 'badge-info', neutral: 'badge-neutral' }
-  const label: Record<string, string> = { actif: 'Actif', repos: 'Repos', alerte: 'Alerte', retraite: 'Retraité', info: 'Planifiée' }
-  return <span className={`badge ${map[s] ?? 'badge-neutral'}`}><span className="badge-dot" />{label[s] ?? s}</span>
+function formatDate(iso: string): string {
+  if (!iso || iso === '—') return '—'
+  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
 }
 
 interface Props {
   onSelectAnimal: (id: string, name: string) => void
+  onAddSession: () => void
+  onSelectSession: (id: string, label: string) => void
 }
 
-export default function Dashboard({ onSelectAnimal }: Props) {
+export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSession }: Props) {
+  const [animals,  setAnimals]  = useState<Animal[]>([])
+  const [sessions, setSessions] = useState<Session[]>([])
+  const [orgs,     setOrgs]     = useState<Organization[]>([])
+  const [loading,  setLoading]  = useState(true)
+
+  useEffect(() => {
+    let loaded = 0
+    const check = () => { if (++loaded === 3) setLoading(false) }
+    const u1 = onSnapshot(collection(db, 'animals'),       snap => { setAnimals(snap.docs.map(d => d.data() as Animal));      check() })
+    const u2 = onSnapshot(collection(db, 'sessions'),      snap => { setSessions(snap.docs.map(d => d.data() as Session));    check() })
+    const u3 = onSnapshot(collection(db, 'organizations'), snap => { setOrgs(snap.docs.map(d => d.data() as Organization));   check() })
+    return () => { u1(); u2(); u3() }
+  }, [])
+
+  const now          = new Date()
+  const currentMonth = now.toISOString().slice(0, 7)
+  const lastMonth    = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString().slice(0, 7)
+
+  const animalMap = useMemo(() => {
+    const m: Record<string, Animal> = {}
+    animals.forEach(a => { m[a.id] = a })
+    return m
+  }, [animals])
+
+  // ── KPI values ──────────────────────────────────────────────────
+  const activeAnimals  = animals.filter(a => a.status === 'actif').length
+  const alertAnimals   = animals.filter(a => a.status === 'alerte' || !a.vaccineOk)
+  const alertCount     = alertAnimals.length
+  const vaccineAlerts  = alertAnimals.filter(a => !a.vaccineOk).length
+  const statusAlerts   = alertAnimals.filter(a => a.status === 'alerte').length
+  const activeOrgs     = orgs.filter(o => o.status === 'active').length
+  const uniqueHandlers = new Set(animals.filter(a => a.handler !== '—').map(a => a.handler)).size
+
+  const thisMonthCount = sessions.filter(s => s.date.slice(0, 7) === currentMonth).length
+  const lastMonthCount = sessions.filter(s => s.date.slice(0, 7) === lastMonth).length
+  const completedMonth = sessions.filter(s => s.date.slice(0, 7) === currentMonth && s.status === 'completed').length
+  const plannedFuture  = sessions.filter(s => s.status === 'planned' && new Date(s.date) >= now).length
+
+  const sessionDiff       = thisMonthCount - lastMonthCount
+  const sessionTrend      = sessionDiff > 0 ? 'up' : sessionDiff < 0 ? 'down' : 'flat'
+  const sessionTrendLabel = sessionDiff > 0 ? `↑ +${sessionDiff}` : sessionDiff < 0 ? `↓ ${sessionDiff}` : '→ ='
+
+  const weeklyCounts  = [0, 1, 2, 3].map(w => {
+    const start = w * 7 + 1
+    const end   = w === 3 ? 31 : (w + 1) * 7
+    return sessions.filter(s => {
+      if (s.date.slice(0, 7) !== currentMonth) return false
+      const day = new Date(s.date).getDate()
+      return day >= start && day <= end
+    }).length
+  })
+  const maxWeekly     = Math.max(...weeklyCounts, 1)
+  const sessionSparks = weeklyCounts.map(c => Math.max(Math.round(c / maxWeekly * 100), 5))
+
+  const orgTypesLabel: Record<string, string> = { ehpad: 'EHPAD', ime: 'IME', clinique: 'Clinique', creche: 'Crèche', hopital: 'Hôpital', ecole: 'École', autre: 'Autre' }
+  const orgTypesSub = [...new Set(orgs.filter(o => o.status === 'active').map(o => o.type))].slice(0, 3).map(t => orgTypesLabel[t] ?? t).join(', ')
+
+  // ── Lists ────────────────────────────────────────────────────────
+  const recentAnimals = [...animals]
+    .sort((a, b) => {
+      const aAlert = (a.status === 'alerte' || !a.vaccineOk) ? 1 : 0
+      const bAlert = (b.status === 'alerte' || !b.vaccineOk) ? 1 : 0
+      if (bAlert !== aAlert) return bAlert - aAlert
+      if (a.lastSession === '—' && b.lastSession !== '—') return 1
+      if (b.lastSession === '—' && a.lastSession !== '—') return -1
+      return b.lastSession.localeCompare(a.lastSession)
+    })
+    .slice(0, 5)
+
+  const upcomingSessions = sessions
+    .filter(s => s.status === 'planned' && new Date(s.date) >= now)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .slice(0, 5)
+
+  const todayLabel = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+  const todayCapitalized = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)
+
+  if (loading) return <div className="empty-state"><div className="empty-icon">🐾</div><div className="empty-title">Chargement…</div></div>
+
+  const kpiCards = [
+    { icon: '🐾', iconColor: 'green',  value: String(activeAnimals),  label: 'Animaux actifs',        sub: `${animals.length} au total · ${animals.filter(a => a.status === 'repos').length} en repos` },
+    { icon: '⚠️', iconColor: 'amber',  value: String(alertCount),     label: 'Alertes sanitaires',     sub: alertCount > 0 ? `${vaccineAlerts} vaccin${vaccineAlerts > 1 ? 's' : ''} · ${statusAlerts} statut critique` : 'Aucune alerte active' },
+    { icon: '🏥', iconColor: 'blue',   value: String(activeOrgs),     label: 'Structures partenaires', sub: orgTypesSub || 'Aucune structure' },
+    { icon: '🥼', iconColor: 'green',  value: String(uniqueHandlers), label: 'Intervenants actifs',    sub: 'Déduits des fiches animaux' },
+    { icon: '📅', iconColor: 'terra',  value: String(thisMonthCount), label: 'Séances ce mois',        sub: `${completedMonth} effectuée${completedMonth > 1 ? 's' : ''} · ${plannedFuture} planifiée${plannedFuture > 1 ? 's' : ''}`, trend: sessionTrend, trendLabel: sessionTrendLabel, sparks: sessionSparks, sparkColor: 'var(--terra-300)' },
+  ]
+
   return (
     <>
       <div className="page-header">
         <div>
           <h1 className="page-title">Tableau de bord</h1>
-          <p className="page-subtitle">Lundi 28 avril 2025 · Bienvenue, S. Durand</p>
+          <p className="page-subtitle">{todayCapitalized}</p>
         </div>
-        <button className="btn btn-primary">+ Planifier une séance</button>
       </div>
 
-      {/* Alert banner */}
-      <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-        <span className="alert-icon">⚠</span>
-        <div className="alert-body">
-          <div className="alert-title">5 alertes sanitaires nécessitent votre attention</div>
-          <div className="alert-text">Martin et Tao ont des vaccinations expirées. 2 visites vétérinaires sont à planifier avant les prochaines séances.</div>
+      {alertCount > 0 && (
+        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
+          <span className="alert-icon">⚠</span>
+          <div className="alert-body">
+            <div className="alert-title">
+              {alertCount} alerte{alertCount > 1 ? 's' : ''} sanitaire{alertCount > 1 ? 's' : ''} nécessite{alertCount === 1 ? '' : 'nt'} votre attention
+            </div>
+            <div className="alert-text">
+              {alertAnimals.slice(0, 3).map(a => a.name).join(', ')}{alertCount > 3 ? ` et ${alertCount - 3} autre${alertCount - 3 > 1 ? 's' : ''}` : ''} — vérifiez les vaccinations avant les prochaines séances.
+            </div>
+          </div>
+          <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Voir les alertes</button>
         </div>
-        <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Voir les alertes</button>
-      </div>
+      )}
 
       {/* KPI grid */}
       <div className="kpi-grid" style={{ marginBottom: 'var(--sp-6)' }}>
-        {KPI_CARDS.map((k) => (
-          <div key={k.label} className="kpi-card">
-            <div className="kpi-header">
-              <div className={`kpi-icon ${k.iconColor}`}>{k.icon}</div>
-              <span className={`kpi-trend ${k.trend}`}>{k.trendLabel}</span>
-            </div>
-            <div className="kpi-value" style={k.value.includes(',') ? { fontSize: 24 } : undefined}>{k.value}</div>
-            <div className="kpi-label">{k.label}</div>
-            <div className="kpi-sub">{k.sub}</div>
-            {k.sparks && (
-              <div className="kpi-spark">
-                {k.sparks.map((h, i) => (
-                  <div
-                    key={i}
-                    className={`spark-bar${i === k.sparks!.length - 1 ? ' active' : ''}`}
-                    style={{ height: `${h}%`, ...(k.sparkColor ? { background: k.sparkColor } : {}) }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+        {kpiCards.map(k => <KpiCard key={k.label} {...k} />)}
       </div>
 
-      {/* Main content: table + sessions */}
+      {/* Main content */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 'var(--sp-5)', alignItems: 'start' }}>
 
         {/* Animals table */}
         <div className="table-wrapper">
           <div className="table-toolbar">
-            <div className="card-title" style={{ marginRight: 'auto' }}>Animaux récents</div>
-            <div className="search-bar" style={{ maxWidth: 220 }}>
-              <span className="search-icon">🔍</span>
-              <input type="text" placeholder="Rechercher…" />
-            </div>
-            <div className="filter-bar">
-              <div className="filter-chip active">Tous</div>
-              <div className="filter-chip">⚠ Alertes</div>
-            </div>
+            <div className="card-title" style={{ marginRight: 'auto' }}>Animaux — alertes &amp; récents</div>
           </div>
           <table>
             <thead>
               <tr>
-                <th><input type="checkbox" className="table-check" /></th>
-                <th className="sortable">Animal</th>
+                <th>Animal</th>
                 <th>Statut</th>
                 <th>Vaccin</th>
-                <th className="sortable">Séances / mois</th>
+                <th>Séances / mois</th>
                 <th>Dernière séance</th>
                 <th>Intervenant</th>
                 <th className="col-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {ANIMALS.map((a) => (
+              {recentAnimals.length === 0 ? (
+                <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: 'var(--sp-6)' }}>Aucun animal</td></tr>
+              ) : recentAnimals.map(a => (
                 <tr key={a.id}>
-                  <td><input type="checkbox" className="table-check" /></td>
                   <td className="td-primary">
-                    <div
-                      className="td-cell-animal"
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => onSelectAnimal(a.id, a.name)}
-                    >
+                    <div className="td-cell-animal" style={{ cursor: 'pointer' }} onClick={() => onSelectAnimal(a.id, a.name)}>
                       <div className="td-av">{a.emoji}</div>
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 700 }}>{a.name}</div>
-                        <div style={{ fontFamily: 'monospace', fontSize: 11, color: 'var(--slate-400)' }}>{a.id}</div>
+                        <div className="td-mono">{a.id}</div>
                       </div>
                     </div>
                   </td>
-                  <td>{statusBadge(a.status)}</td>
-                  <td>{statusBadge(a.vaccine)}</td>
-                  <td>{a.sessions}</td>
-                  <td style={{ color: 'var(--slate-500)' }}>{a.lastSession}</td>
-                  <td style={{ color: 'var(--slate-600)' }}>{a.handler}</td>
+                  <td>
+                    <span className={`badge ${{ actif: 'badge-actif', repos: 'badge-repos', alerte: 'badge-alerte', retraite: 'badge-retraite' }[a.status] ?? 'badge-neutral'}`}>
+                      <span className="badge-dot" />{{ actif: 'Actif', repos: 'Repos', alerte: 'Alerte', retraite: 'Retraité' }[a.status] ?? a.status}
+                    </span>
+                  </td>
+                  <td>
+                    <span className={`badge ${a.vaccineOk ? 'badge-actif' : 'badge-alerte'}`}>
+                      <span className="badge-dot" />{a.vaccineOk ? 'À jour' : 'Attention'}
+                    </span>
+                  </td>
+                  <td>{a.sessions[currentMonth] ?? 0}</td>
+                  <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>{formatDate(a.lastSession)}</td>
+                  <td style={{ color: a.handler === '—' ? 'var(--slate-300)' : 'var(--slate-600)' }}>{a.handler}</td>
                   <td className="td-actions">
-                    <button className="td-action-btn">✏</button>
-                    <button className="td-action-btn">🔗</button>
-                    <button className="td-action-btn danger">🗑</button>
+                    <button className="td-action-btn" title="Voir la fiche" onClick={() => onSelectAnimal(a.id, a.name)}>🔗</button>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
           <div className="table-pagination">
-            <span className="pag-info">Affichage 1–5 sur 47 animaux</span>
-            <div className="pag-controls">
-              <button className="pag-btn" disabled>«</button>
-              <button className="pag-btn" disabled>‹</button>
-              <button className="pag-btn active">1</button>
-              <button className="pag-btn">2</button>
-              <button className="pag-btn">3</button>
-              <button className="pag-btn">›</button>
-              <button className="pag-btn">»</button>
-            </div>
+            <span className="pag-info">
+              {animals.length === 0 ? 'Aucun animal' : `Affichage ${Math.min(5, animals.length)} sur ${animals.length} animaux · alertes en premier`}
+            </span>
           </div>
         </div>
 
@@ -195,36 +201,29 @@ export default function Dashboard({ onSelectAnimal }: Props) {
           <div className="card-header">
             <div>
               <div className="card-title">Séances à venir</div>
-              <div className="card-subtitle">3 planifiées</div>
+              <div className="card-subtitle">{plannedFuture} planifiée{plannedFuture > 1 ? 's' : ''}</div>
             </div>
-            <button className="btn btn-ghost btn-sm">Voir tout</button>
           </div>
           <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-3)' }}>
-            {SESSIONS.map((s, i) => (
-              <div
-                key={i}
-                className={`session-card${s.status === 'alerte' ? ' session-alerte' : s.status === 'repos' ? ' session-pending' : ''}`}
-              >
-                <div className="sc-header">
-                  <div>
-                    <div className="sc-title">{s.structure}</div>
-                    <div className="sc-date">{s.date}</div>
-                  </div>
-                  <span className={`badge badge-${s.status}`}>
-                    <span className="badge-dot" />{s.statusLabel}
-                  </span>
-                </div>
-                <div style={{ display: 'flex', gap: 'var(--sp-2)' }}>
-                  <div className="sc-animal">{s.animal}</div>
-                </div>
-                <div className="sc-meta">
-                  <span>🥼 {s.handler}</span>
-                </div>
+            {upcomingSessions.length === 0 ? (
+              <div style={{ textAlign: 'center', color: 'var(--slate-400)', fontSize: 13, padding: 'var(--sp-4) 0' }}>
+                Aucune séance planifiée
               </div>
-            ))}
+            ) : upcomingSessions.map(s => {
+              const d = new Date(s.date)
+              const label = `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+              return (
+                <SessionCard
+                  key={s.id}
+                  session={s}
+                  animal={animalMap[s.animalId]}
+                  onClick={() => onSelectSession(s.id, label)}
+                />
+              )
+            })}
           </div>
           <div className="card-footer">
-            <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }}>
+            <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={onAddSession}>
               + Planifier une séance
             </button>
           </div>

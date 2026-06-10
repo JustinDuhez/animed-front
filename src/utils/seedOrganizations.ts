@@ -1,6 +1,6 @@
 import { collection, doc, getDocs, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Organization } from '../data/animals.js'
+import type { Organization } from '../data/organization.js'
 
 const SEED_ORGANIZATIONS: Organization[] = [
   {

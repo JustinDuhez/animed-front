@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { OrgType, Organization } from '../data/animals.js'
+import type { OrgType, Organization } from '../data/organization.js'
 
 const TYPE_OPTIONS: { value: OrgType; label: string }[] = [
   { value: 'ehpad',    label: 'EHPAD' },

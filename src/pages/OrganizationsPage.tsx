@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Organization, OrgType, Session } from '../data/animals.js'
+import type { Organization, OrgType } from '../data/organization.js'
+import type { Session } from '../data/session.js'
 
 const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
   ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },

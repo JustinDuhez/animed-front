@@ -4,7 +4,7 @@ import { db } from '../firebase.js'
 import { seedAnimalsIfEmpty } from '../utils/seedAnimals.js'
 import { seedSessionsIfEmpty } from '../utils/seedSessions.js'
 import { seedOrganizationsIfEmpty } from '../utils/seedOrganizations.js'
-import type { Animal, Status } from '../data/animals.js'
+import type { Animal, Status } from '../data/animal.js'
 
 type FilterTab   = 'tous' | 'actif' | 'repos' | 'alerte'
 type SortKey     = 'name' | 'species' | 'sessions' | 'handler'

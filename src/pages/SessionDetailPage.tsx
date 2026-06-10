@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Animal, Session } from '../data/animals.js'
+import type { Animal } from '../data/animal.js'
+import type { Session } from '../data/session.js'
 
 const SESSION_STATUS: Record<Session['status'], { cls: string; label: string }> = {
   completed: { cls: 'badge-actif',  label: 'Effectuée' },
