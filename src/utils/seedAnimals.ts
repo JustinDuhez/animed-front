@@ -1,6 +1,6 @@
 import { collection, doc, getDocs, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import { ANIMALS } from '../data/animals.js'
+import { ANIMALS } from '../data/animal.js'
 
 export async function seedAnimalsIfEmpty(): Promise<void> {
   const snap = await getDocs(collection(db, 'animals'))

@@ -63,7 +63,13 @@ function App() {
       onSignOut={() => signOut(auth)}
       extraCrumb={extraCrumb}
     >
-      {page === 'dashboard'  && <Dashboard onSelectAnimal={(id, name) => { setPage('animals'); setSelectedAnimal({ id, name }) }} />}
+      {page === 'dashboard' && (
+        <Dashboard
+          onSelectAnimal={(id, name) => { setPage('animals'); setSelectedAnimal({ id, name }) }}
+          onAddSession={() => { setPage('sessions'); setAddingSession(true) }}
+          onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
+        />
+      )}
       {page === 'animals' && !selectedAnimal && !addingAnimal && (
         <AnimalsPage
           onSelectAnimal={(id, name) => setSelectedAnimal({ id, name })}
