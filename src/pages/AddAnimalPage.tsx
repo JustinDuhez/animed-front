@@ -1,7 +1,7 @@
 import { useState, FormEvent } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Animal, Status, Vaccine } from '../data/animals.js'
+import type { Animal, Status, Vaccine } from '../data/animal.js'
 
 interface Props {
   onBack: () => void

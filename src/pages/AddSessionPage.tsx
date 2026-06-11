@@ -1,7 +1,9 @@
 import { useState, useEffect, FormEvent } from 'react'
 import { collection, doc, onSnapshot, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Animal, Organization, Session } from '../data/animals.js'
+import type { Animal } from '../data/animal.js'
+import type { Organization } from '../data/organization.js'
+import type { Session } from '../data/session.js'
 
 interface Props {
   onBack: () => void

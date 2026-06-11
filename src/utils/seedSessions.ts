@@ -1,6 +1,7 @@
 import { collection, doc, getDocs, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Animal, Session } from '../data/animals.js'
+import type { Animal } from '../data/animal.js'
+import type { Session } from '../data/session.js'
 
 function generateSessionsForAnimal(animal: Animal): Session[] {
   const result: Session[] = []

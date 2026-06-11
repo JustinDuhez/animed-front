@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../../firebase.js'
 import type { User } from 'firebase/auth'
-import type { Animal } from '../../data/animals.js'
+import type { Animal } from '../../data/animal.js'
 
 interface NavItem {
   icon: string

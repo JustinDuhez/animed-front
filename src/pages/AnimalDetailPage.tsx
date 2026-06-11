@@ -2,7 +2,8 @@ import { useState, useEffect, useRef, type ChangeEvent } from 'react'
 import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, query, collection, where } from 'firebase/firestore'
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
 import { db, storage } from '../firebase.js'
-import type { Animal, AnimalDocument, Status, Vaccine, Session } from '../data/animals.js'
+import type { Animal, AnimalDocument, Status, Vaccine } from '../data/animal.js'
+import type { Session } from '../data/session.js'
 
 type Tab = 'infos' | 'seances' | 'documents'
 

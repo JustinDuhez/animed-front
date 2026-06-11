@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { Animal, Session } from '../data/animals.js'
+import type { Animal } from '../data/animal.js'
+import type { Session } from '../data/session.js'
 
 type FilterTab = 'all' | 'completed' | 'planned' | 'cancelled'
 
