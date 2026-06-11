@@ -3,24 +3,19 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import type { Session } from '../data/session.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import SearchBar from '../components/ui/SearchBar.js'
+import FilterBar from '../components/ui/FilterBar.js'
+import EmptyState from '../components/ui/EmptyState.js'
+import SessionGridCard from '../components/ui/SessionGridCard.js'
 
 type FilterTab = 'all' | 'completed' | 'planned' | 'cancelled'
-
-const SESSION_STATUS: Record<Session['status'], { cls: string; label: string }> = {
-  completed: { cls: 'badge-actif',  label: 'Effectuée' },
-  planned:   { cls: 'badge-repos',  label: 'Planifiée' },
-  cancelled: { cls: 'badge-alerte', label: 'Annulée'   },
-}
 
 const FILTER_LABELS: Record<FilterTab, string> = {
   all:       'Toutes',
   completed: 'Effectuées',
   planned:   'Planifiées',
   cancelled: 'Annulées',
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 }
 
 function formatMonthHeading(yearMonth: string): string {
@@ -91,66 +86,43 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
     return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0]))
   }, [filtered])
 
-  if (loading) return (
-    <div className="empty-state">
-      <div className="empty-icon">📋</div>
-      <div className="empty-title">Chargement…</div>
-    </div>
-  )
+  if (loading) return <EmptyState icon="📋" title="Chargement…" />
+
+  const filterChips = (['all', 'completed', 'planned', 'cancelled'] as FilterTab[]).map(f => ({
+    key: f, label: FILTER_LABELS[f], count: counts[f],
+  }))
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Séances</h1>
-          <p className="page-subtitle">
-            {counts.all} séance{counts.all !== 1 ? 's' : ''} · {counts.planned} planifiée{counts.planned !== 1 ? 's' : ''}
-          </p>
-        </div>
+      <PageHeader
+        title="Séances"
+        subtitle={`${counts.all} séance${counts.all !== 1 ? 's' : ''} · ${counts.planned} planifiée${counts.planned !== 1 ? 's' : ''}`}
+      >
         <button className="btn btn-primary" onClick={onAddSession}>+ Planifier une séance</button>
-      </div>
+      </PageHeader>
 
       <div className="table-wrapper" style={{ marginBottom: 'var(--sp-5)' }}>
         <div className="table-toolbar">
-          <div className="search-bar" style={{ maxWidth: 280 }}>
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Animal, structure, intervenant…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-            />
-          </div>
-          <div className="filter-bar" style={{ flex: 1 }}>
-            {(['all', 'completed', 'planned', 'cancelled'] as FilterTab[]).map(f => (
-              <div
-                key={f}
-                className={`filter-chip${filter === f ? ' active' : ''}`}
-                onClick={() => setFilter(f)}
-              >
-                {FILTER_LABELS[f]}
-                <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.65, marginLeft: 3 }}>
-                  {counts[f]}
-                </span>
-              </div>
-            ))}
-          </div>
+          <SearchBar
+            placeholder="Animal, structure, intervenant…"
+            value={search}
+            onChange={setSearch}
+          />
+          <FilterBar chips={filterChips} active={filter} onChange={f => setFilter(f as FilterTab)} />
         </div>
       </div>
 
       {filtered.length === 0 ? (
-        <div className="empty-state">
-          <div className="empty-icon">📋</div>
-          <div className="empty-title">Aucune séance trouvée</div>
-          <div className="empty-text">
-            {search
-              ? `Aucun résultat pour « ${search} ». Essayez un autre terme.`
-              : 'Aucune séance dans cette catégorie.'}
-          </div>
-          {search && (
-            <button className="btn btn-secondary" onClick={() => setSearch('')}>Réinitialiser la recherche</button>
-          )}
-        </div>
+        <EmptyState
+          icon="📋"
+          title="Aucune séance trouvée"
+          description={search
+            ? `Aucun résultat pour « ${search} ». Essayez un autre terme.`
+            : 'Aucune séance dans cette catégorie.'}
+          action={search
+            ? <button className="btn btn-secondary" onClick={() => setSearch('')}>Réinitialiser la recherche</button>
+            : undefined}
+        />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
           {grouped.map(([month, monthSessions]) => (
@@ -162,70 +134,18 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
               }}>
                 {formatMonthHeading(month)}
               </div>
-
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--sp-3)' }}>
                 {monthSessions.map(s => {
-                  const animal = animals[s.animalId]
-                  const { cls, label } = SESSION_STATUS[s.status]
                   const d = new Date(s.date)
-                  const now = new Date()
+                  const label = `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${new Date(s.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
                   return (
-                    <div key={s.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
-
-                      {/* Header — date + status (click → detail) */}
-                      <div
-                        style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--slate-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}
-                        onClick={() => onSelectSession(s.id, `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${formatTime(s.date)}`)}
-                      >
-                        <div>
-                          <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--slate-400)', textTransform: 'capitalize' }}>
-                            {d.toLocaleDateString('fr-FR', { weekday: 'long' })}
-                          </div>
-                          <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--slate-900)', lineHeight: 1.1 }}>
-                            {d.getDate()} <span style={{ fontSize: 15, fontWeight: 600, textTransform: 'capitalize' }}>{d.toLocaleDateString('fr-FR', { month: 'long' })}</span>
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 2 }}>
-                            {formatTime(s.date)}
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--sp-1)' }}>
-                          <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
-                          {s.status === 'planned' && d < now && (
-                            <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date dépassée</span>
-                          )}
-                          {s.status === 'completed' && d > now && (
-                            <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date future</span>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Animal */}
-                      <div
-                        style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--slate-100)', display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', cursor: animal ? 'pointer' : 'default' }}
-                        onClick={() => animal && onSelectAnimal(animal.id, animal.name)}
-                      >
-                        <div style={{ fontSize: 26, lineHeight: 1 }}>{animal?.emoji ?? '🐾'}</div>
-                        <div>
-                          <div style={{ fontSize: 13, fontWeight: 700, color: animal ? 'var(--green-600)' : 'var(--slate-900)' }}>
-                            {animal?.name ?? '—'}
-                          </div>
-                          <div style={{ fontSize: 11, color: 'var(--slate-400)', fontFamily: 'monospace' }}>
-                            {s.animalId}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Structure + handler + notes */}
-                      <div style={{ padding: 'var(--sp-3) var(--sp-4)', flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-700)' }}>
-                          {s.structure || '—'}
-                        </div>
-                        <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 2 }}>
-                          {s.handler || '—'}
-                        </div>
-                      </div>
-
-                    </div>
+                    <SessionGridCard
+                      key={s.id}
+                      session={s}
+                      animal={animals[s.animalId]}
+                      onSelect={() => onSelectSession(s.id, label)}
+                      onSelectAnimal={onSelectAnimal}
+                    />
                   )
                 })}
               </div>

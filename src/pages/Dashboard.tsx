@@ -6,6 +6,8 @@ import type { Session } from '../data/session.js'
 import type { Organization } from '../data/organization.js'
 import KpiCard from '../components/ui/KpiCard.js'
 import SessionCard from '../components/ui/SessionCard.js'
+import EmptyState from '../components/ui/EmptyState.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
 
 function formatDate(iso: string): string {
   if (!iso || iso === '—') return '—'
@@ -96,7 +98,7 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
   const todayLabel = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const todayCapitalized = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)
 
-  if (loading) return <div className="empty-state"><div className="empty-icon">🐾</div><div className="empty-title">Chargement…</div></div>
+  if (loading) return <EmptyState icon="🐾" title="Chargement…" />
 
   const kpiCards = [
     { icon: '🐾', iconColor: 'green',  value: String(activeAnimals),  label: 'Animaux actifs',        sub: `${animals.length} au total · ${animals.filter(a => a.status === 'repos').length} en repos` },
@@ -116,18 +118,12 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
       </div>
 
       {alertCount > 0 && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">⚠</span>
-          <div className="alert-body">
-            <div className="alert-title">
-              {alertCount} alerte{alertCount > 1 ? 's' : ''} sanitaire{alertCount > 1 ? 's' : ''} nécessite{alertCount === 1 ? '' : 'nt'} votre attention
-            </div>
-            <div className="alert-text">
-              {alertAnimals.slice(0, 3).map(a => a.name).join(', ')}{alertCount > 3 ? ` et ${alertCount - 3} autre${alertCount - 3 > 1 ? 's' : ''}` : ''} — vérifiez les vaccinations avant les prochaines séances.
-            </div>
-          </div>
-          <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Voir les alertes</button>
-        </div>
+        <AlertBanner
+          icon="⚠"
+          title={`${alertCount} alerte${alertCount > 1 ? 's' : ''} sanitaire${alertCount > 1 ? 's' : ''} nécessite${alertCount === 1 ? '' : 'nt'} votre attention`}
+          description={`${alertAnimals.slice(0, 3).map(a => a.name).join(', ')}${alertCount > 3 ? ` et ${alertCount - 3} autre${alertCount - 3 > 1 ? 's' : ''}` : ''} — vérifiez les vaccinations avant les prochaines séances.`}
+          action={<button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Voir les alertes</button>}
+        />
       )}
 
       {/* KPI grid */}

@@ -4,28 +4,15 @@ import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebas
 import { db, storage } from '../firebase.js'
 import type { Animal, AnimalDocument, Status, Vaccine } from '../data/animal.js'
 import type { Session } from '../data/session.js'
+import { ANIMAL_STATUS_MAP } from '../utils/badges.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
+import EmptyState from '../components/ui/EmptyState.js'
+import SessionGridCard from '../components/ui/SessionGridCard.js'
 
 type Tab = 'infos' | 'seances' | 'documents'
 
-
-const STATUS_BADGE: Record<Animal['status'], { cls: string; label: string }> = {
-  actif:    { cls: 'badge-actif',    label: 'Actif' },
-  repos:    { cls: 'badge-repos',    label: 'Repos' },
-  alerte:   { cls: 'badge-alerte',   label: 'Alerte' },
-  retraite: { cls: 'badge-retraite', label: 'Retraité' },
-}
-
-const SESSION_STATUS: Record<Session['status'], { cls: string; label: string }> = {
-  completed: { cls: 'badge-actif',    label: 'Effectuée' },
-  planned:   { cls: 'badge-repos',    label: 'Planifiée' },
-  cancelled: { cls: 'badge-alerte',   label: 'Annulée'   },
-}
-
 const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️']
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
 
 function formatMonthHeading(yearMonth: string): string {
   const [year, month] = yearMonth.split('-')
@@ -213,22 +200,20 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
     setDraft(d => d ? { ...d, establishments: d.establishments.filter((_, idx) => idx !== i) } : d)
   }
 
-  if (animal === undefined) {
-    return <div className="empty-state"><div className="empty-icon">🐾</div><div className="empty-title">Chargement…</div></div>
-  }
+  if (animal === undefined) return <EmptyState icon="🐾" title="Chargement…" />
   if (!animal) {
     return (
-      <div className="empty-state">
-        <div className="empty-icon">🐾</div>
-        <div className="empty-title">Animal introuvable</div>
-        <div className="empty-text">Cet animal n'existe pas ou a été supprimé.</div>
-        <button className="btn btn-secondary" onClick={onBack}>Retour à la liste</button>
-      </div>
+      <EmptyState
+        icon="🐾"
+        title="Animal introuvable"
+        description="Cet animal n'existe pas ou a été supprimé."
+        action={<button className="btn btn-secondary" onClick={onBack}>Retour à la liste</button>}
+      />
     )
   }
 
   const d = editing && draft ? draft : animal
-  const { cls: statusCls, label: statusLabel } = STATUS_BADGE[d.status]
+  const { cls: statusCls, label: statusLabel } = ANIMAL_STATUS_MAP[d.status]
   const hasAlert = d.status === 'alerte' || !d.vaccineOk
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
@@ -239,33 +224,23 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{d.name}</h1>
-          <p className="page-subtitle">{d.species} · {d.gender} · {d.id}</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          {editing ? (
-            <>
-              <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
-              <button className="btn btn-primary" onClick={saveEditing} disabled={saving}>
-                {saving ? 'Enregistrement…' : '✓ Enregistrer'}
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>
-            </>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={d.name}
+        subtitle={`${d.species} · ${d.gender} · ${d.id}`}
+      >
+        {editing ? (
+          <>
+            <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
+            <button className="btn btn-primary" onClick={saveEditing} disabled={saving}>
+              {saving ? 'Enregistrement…' : '✓ Enregistrer'}
+            </button>
+          </>
+        ) : (
+          <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>
+        )}
+      </PageHeader>
 
-      {saveError && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">✕</span>
-          <div className="alert-body"><div className="alert-title">{saveError}</div></div>
-        </div>
-      )}
+      {saveError && <AlertBanner title={saveError} />}
 
       {/* Hero */}
       <div className="detail-hero">
@@ -500,11 +475,12 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                 {sessionsLoading ? (
                   <div style={{ textAlign: 'center', padding: 'var(--sp-6)', color: 'var(--slate-400)', fontSize: 13 }}>Chargement…</div>
                 ) : sessionRecords.length === 0 ? (
-                  <div className="empty-state" style={{ padding: 'var(--sp-8) var(--sp-4)' }}>
-                    <div className="empty-icon">📋</div>
-                    <div className="empty-title">Aucune séance enregistrée</div>
-                    <div className="empty-text">Les séances de {animal.name} apparaîtront ici.</div>
-                  </div>
+                  <EmptyState
+                    icon="📋"
+                    title="Aucune séance enregistrée"
+                    description={`Les séances de ${animal.name} apparaîtront ici.`}
+                    style={{ padding: 'var(--sp-8) var(--sp-4)' }}
+                  />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-6)' }}>
                     {Object.entries(
@@ -521,35 +497,14 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 'var(--sp-3)' }}>
                           {monthSessions.map(s => {
-                            const { cls, label } = SESSION_STATUS[s.status]
-                            const d   = new Date(s.date)
-                            const now = new Date()
+                            const dt = new Date(s.date)
+                            const label = `${dt.getDate()} ${dt.toLocaleDateString('fr-FR', { month: 'long' })} · ${dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
                             return (
-                              <div key={s.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
-                                <div
-                                  style={{ padding: 'var(--sp-3) var(--sp-4)', borderBottom: '1px solid var(--slate-100)', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', cursor: 'pointer' }}
-                                  onClick={() => onSelectSession(s.id, `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${formatTime(s.date)}`)}
-                                >
-                                  <div>
-                                    <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--slate-400)', textTransform: 'capitalize' }}>
-                                      {d.toLocaleDateString('fr-FR', { weekday: 'long' })}
-                                    </div>
-                                    <div style={{ fontSize: 22, fontWeight: 800, color: 'var(--slate-900)', lineHeight: 1.1 }}>
-                                      {d.getDate()} <span style={{ fontSize: 15, fontWeight: 600, textTransform: 'capitalize' }}>{d.toLocaleDateString('fr-FR', { month: 'long' })}</span>
-                                    </div>
-                                    <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 2 }}>{formatTime(s.date)}</div>
-                                  </div>
-                                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--sp-1)' }}>
-                                    <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
-                                    {s.status === 'planned'   && d < now && <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date dépassée</span>}
-                                    {s.status === 'completed' && d > now && <span style={{ fontSize: 10, color: 'var(--amber-600)', fontWeight: 600 }}>⚠ Date future</span>}
-                                  </div>
-                                </div>
-                                <div style={{ padding: 'var(--sp-3) var(--sp-4)', flex: 1 }}>
-                                  <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-700)' }}>{s.structure || '—'}</div>
-                                  <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 2 }}>{s.handler || '—'}</div>
-                                </div>
-                              </div>
+                              <SessionGridCard
+                                key={s.id}
+                                session={s}
+                                onSelect={() => onSelectSession(s.id, label)}
+                              />
                             )
                           })}
                         </div>
@@ -577,21 +532,22 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                 )}
 
                 {uploadError && (
-                  <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-4)' }}>
-                    <span className="alert-icon">✕</span>
-                    <div className="alert-body"><div className="alert-title">{uploadError}</div></div>
-                    <button className="btn btn-secondary btn-sm" onClick={() => setUploadError('')}>Fermer</button>
-                  </div>
+                  <AlertBanner
+                    title={uploadError}
+                    style={{ marginBottom: 'var(--sp-4)' }}
+                    action={<button className="btn btn-secondary btn-sm" onClick={() => setUploadError('')}>Fermer</button>}
+                  />
                 )}
 
                 {docsLoading ? (
                   <div style={{ textAlign: 'center', padding: 'var(--sp-6)', color: 'var(--slate-400)', fontSize: 13 }}>Chargement…</div>
                 ) : documents.length === 0 ? (
-                  <div className="empty-state" style={{ padding: 'var(--sp-10) var(--sp-6)' }}>
-                    <div className="empty-icon">📄</div>
-                    <div className="empty-title">Aucun document</div>
-                    <div className="empty-text">Importez des documents pour {animal.name} — carnets de santé, certificats, résultats d'analyses…</div>
-                  </div>
+                  <EmptyState
+                    icon="📄"
+                    title="Aucun document"
+                    description={`Importez des documents pour ${animal.name} — carnets de santé, certificats, résultats d'analyses…`}
+                    style={{ padding: 'var(--sp-10) var(--sp-6)' }}
+                  />
                 ) : (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
                     {documents.map(adoc => (
