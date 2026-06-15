@@ -4,6 +4,8 @@ import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import type { Organization } from '../data/organization.js'
 import type { Session } from '../data/session.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
 
 interface Props {
   onBack: () => void
@@ -86,25 +88,17 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Nouvelle séance</h1>
-          <p className="page-subtitle">Remplissez les informations pour planifier une séance</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          <button type="button" className="btn btn-secondary" onClick={onBack}>Annuler</button>
-          <button form="add-session-form" type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Enregistrement…' : '✓ Enregistrer'}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Nouvelle séance"
+        subtitle="Remplissez les informations pour planifier une séance"
+      >
+        <button type="button" className="btn btn-secondary" onClick={onBack}>Annuler</button>
+        <button form="add-session-form" type="submit" className="btn btn-primary" disabled={submitting}>
+          {submitting ? 'Enregistrement…' : '✓ Enregistrer'}
+        </button>
+      </PageHeader>
 
-      {error && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">✕</span>
-          <div className="alert-body"><div className="alert-title">{error}</div></div>
-        </div>
-      )}
+      {error && <AlertBanner title={error} />}
 
       <form id="add-session-form" onSubmit={handleSubmit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', maxWidth: 680 }}>

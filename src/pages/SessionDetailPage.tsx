@@ -3,22 +3,11 @@ import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import type { Session } from '../data/session.js'
-
-const SESSION_STATUS: Record<Session['status'], { cls: string; label: string }> = {
-  completed: { cls: 'badge-actif',  label: 'Effectuée' },
-  planned:   { cls: 'badge-repos',  label: 'Planifiée' },
-  cancelled: { cls: 'badge-alerte', label: 'Annulée'   },
-}
-
-function formatFullDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+import { SESSION_STATUS_MAP } from '../utils/badges.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
+import EmptyState from '../components/ui/EmptyState.js'
+import { formatFullDate, formatTime } from '../utils/format.js'
 
 interface Props {
   id: string
@@ -79,70 +68,55 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
     setDraft(d => d ? { ...d, [field]: value } : d)
   }
 
-  if (session === undefined) {
-    return <div className="empty-state"><div className="empty-icon">📋</div><div className="empty-title">Chargement…</div></div>
-  }
+  if (session === undefined) return <EmptyState icon="📋" title="Chargement…" />
   if (!session) {
     return (
-      <div className="empty-state">
-        <div className="empty-icon">📋</div>
-        <div className="empty-title">Séance introuvable</div>
-        <div className="empty-text">Cette séance n'existe pas ou a été supprimée.</div>
-        <button className="btn btn-secondary" onClick={onBack}>Retour aux séances</button>
-      </div>
+      <EmptyState
+        icon="📋"
+        title="Séance introuvable"
+        description="Cette séance n'existe pas ou a été supprimée."
+        action={<button className="btn btn-secondary" onClick={onBack}>Retour aux séances</button>}
+      />
     )
   }
 
   const s   = editing && draft ? draft : session
   const d   = new Date(s.date)
   const now = new Date()
-  const { cls, label } = SESSION_STATUS[s.status]
+  const { cls, label } = SESSION_STATUS_MAP[s.status]
   const hasWarning =
     (s.status === 'planned'   && d < now) ||
     (s.status === 'completed' && d > now)
 
   return (
     <>
-      {/* Page header */}
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">
-            {animal?.emoji ?? '📋'} {animal?.name ?? session.animalId}
-          </h1>
-          <p className="page-subtitle" style={{ textTransform: 'capitalize' }}>
-            {formatFullDate(s.date)} · {formatTime(s.date)}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          {editing ? (
-            <>
-              <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
-              <button className="btn btn-primary"   onClick={saveEditing}   disabled={saving}>
-                {saving ? 'Enregistrement…' : '✓ Enregistrer'}
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
-              <button className="btn btn-primary"   onClick={startEditing}>✏ Modifier</button>
-            </>
-          )}
-        </div>
-      </div>
+      <PageHeader
+        title={`${animal?.emoji ?? '📋'} ${animal?.name ?? session.animalId}`}
+        subtitle={`${formatFullDate(s.date)} · ${formatTime(s.date)}`}
+        subtitleStyle={{ textTransform: 'capitalize' }}
+      >
+        {editing ? (
+          <>
+            <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
+            <button className="btn btn-primary"   onClick={saveEditing}   disabled={saving}>
+              {saving ? 'Enregistrement…' : '✓ Enregistrer'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
+            <button className="btn btn-primary"   onClick={startEditing}>✏ Modifier</button>
+          </>
+        )}
+      </PageHeader>
 
-      {saveError && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">✕</span>
-          <div className="alert-body"><div className="alert-title">{saveError}</div></div>
-        </div>
-      )}
+      {saveError && <AlertBanner title={saveError} />}
 
       <div className="detail-layout">
 
         {/* ── Left column ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
-          {/* Session details */}
           <div className="card">
             <div className="card-header">
               <div className="card-title">Détails de la séance</div>
@@ -171,13 +145,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Date et heure</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="datetime-local"
-                      value={draft.date.slice(0, 16)}
-                      onChange={e => setField('date', e.target.value + ':00')}
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="datetime-local" value={draft.date.slice(0, 16)} onChange={e => setField('date', e.target.value + ':00')} style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value" style={{ textTransform: 'capitalize' }}>
                       {formatFullDate(s.date)} · {formatTime(s.date)}
@@ -188,13 +156,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Structure</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="text"
-                      value={draft.structure}
-                      onChange={e => setField('structure', e.target.value)}
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="text" value={draft.structure} onChange={e => setField('structure', e.target.value)} style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value">{s.structure || '—'}</div>
                   )}
@@ -203,13 +165,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Intervenant</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="text"
-                      value={draft.handler}
-                      onChange={e => setField('handler', e.target.value)}
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="text" value={draft.handler} onChange={e => setField('handler', e.target.value)} style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value">{s.handler || '—'}</div>
                   )}
@@ -219,27 +175,15 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
             </div>
           </div>
 
-          {/* Notes */}
           <div className="card">
             <div className="card-header"><div className="card-title">Notes</div></div>
             <div className="card-body">
               {editing && draft ? (
-                <textarea
-                  className="form-input"
-                  value={draft.notes}
-                  onChange={e => setField('notes', e.target.value)}
-                  rows={5}
-                  style={{ resize: 'vertical' }}
-                  placeholder="Observations, comportement de l'animal, retours des participants…"
-                />
+                <textarea className="form-input" value={draft.notes} onChange={e => setField('notes', e.target.value)} rows={5} style={{ resize: 'vertical' }} placeholder="Observations, comportement de l'animal, retours des participants…" />
               ) : s.notes ? (
-                <p style={{ fontSize: 13, color: 'var(--slate-600)', lineHeight: 1.6, margin: 0 }}>
-                  {s.notes}
-                </p>
+                <p style={{ fontSize: 13, color: 'var(--slate-600)', lineHeight: 1.6, margin: 0 }}>{s.notes}</p>
               ) : (
-                <p style={{ fontSize: 13, color: 'var(--slate-400)', fontStyle: 'italic', margin: 0 }}>
-                  Aucune note renseignée.
-                </p>
+                <p style={{ fontSize: 13, color: 'var(--slate-400)', fontStyle: 'italic', margin: 0 }}>Aucune note renseignée.</p>
               )}
             </div>
           </div>
@@ -249,7 +193,6 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
         {/* ── Right column ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
-          {/* Animal */}
           <div className="card">
             <div className="card-header"><div className="card-title">Animal</div></div>
             <div className="card-body">
@@ -279,7 +222,6 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
             </div>
           </div>
 
-          {/* Reference */}
           <div className="card">
             <div className="card-header"><div className="card-title">Référence</div></div>
             <div className="card-body">

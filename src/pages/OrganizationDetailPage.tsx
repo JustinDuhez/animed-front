@@ -3,6 +3,10 @@ import { doc, onSnapshot, updateDoc, collection } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Organization, OrgType } from '../data/organization.js'
 import type { Session } from '../data/session.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
+import EmptyState from '../components/ui/EmptyState.js'
+import { formatFullDate, formatSessionLabel } from '../utils/format.js'
 
 const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
   ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
@@ -23,21 +27,6 @@ const TYPE_OPTIONS: { value: OrgType; label: string }[] = [
   { value: 'ecole',    label: 'École' },
   { value: 'autre',    label: 'Autre' },
 ]
-
-function formatFullDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
-
-function sessionLabel(iso: string): string {
-  const d = new Date(iso)
-  return `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${formatTime(iso)}`
-}
 
 interface Props {
   id: string
@@ -115,17 +104,15 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
     orgSessions.filter(s => s.status === 'completed').slice(0, 5)
   , [orgSessions])
 
-  if (org === undefined) {
-    return <div className="empty-state"><div className="empty-icon">🏥</div><div className="empty-title">Chargement…</div></div>
-  }
+  if (org === undefined) return <EmptyState icon="🏥" title="Chargement…" />
   if (!org) {
     return (
-      <div className="empty-state">
-        <div className="empty-icon">🏥</div>
-        <div className="empty-title">Structure introuvable</div>
-        <div className="empty-text">Cette structure n'existe pas ou a été supprimée.</div>
-        <button className="btn btn-secondary" onClick={onBack}>Retour aux structures</button>
-      </div>
+      <EmptyState
+        icon="🏥"
+        title="Structure introuvable"
+        description="Cette structure n'existe pas ou a été supprimée."
+        action={<button className="btn btn-secondary" onClick={onBack}>Retour aux structures</button>}
+      />
     )
   }
 
@@ -138,39 +125,34 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{icon} {display.name}</h1>
-          <p className="page-subtitle" style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}>
+      <PageHeader
+        title={`${icon} ${display.name}`}
+        subtitle={
+          <>
             <span style={{ fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: bg, color }}>
               {label}
             </span>
             {display.address && <span>· {display.address}</span>}
-          </p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          {editing ? (
-            <>
-              <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
-              <button className="btn btn-primary"   onClick={saveEditing}   disabled={saving}>
-                {saving ? 'Enregistrement…' : '✓ Enregistrer'}
-              </button>
-            </>
-          ) : (
-            <>
-              <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
-              <button className="btn btn-primary"   onClick={startEditing}>✏ Modifier</button>
-            </>
-          )}
-        </div>
-      </div>
+          </>
+        }
+        subtitleStyle={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap' }}
+      >
+        {editing ? (
+          <>
+            <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
+            <button className="btn btn-primary"   onClick={saveEditing}   disabled={saving}>
+              {saving ? 'Enregistrement…' : '✓ Enregistrer'}
+            </button>
+          </>
+        ) : (
+          <>
+            <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
+            <button className="btn btn-primary"   onClick={startEditing}>✏ Modifier</button>
+          </>
+        )}
+      </PageHeader>
 
-      {saveError && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">✕</span>
-          <div className="alert-body"><div className="alert-title">{saveError}</div></div>
-        </div>
-      )}
+      {saveError && <AlertBanner title={saveError} />}
 
       <div className="detail-layout">
 
@@ -185,13 +167,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Nom</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="text"
-                      value={draft.name}
-                      onChange={e => setField('name', e.target.value)}
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="text" value={draft.name} onChange={e => setField('name', e.target.value)} style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value">{display.name}</div>
                   )}
@@ -232,14 +208,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Adresse</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="text"
-                      value={draft.address}
-                      onChange={e => setField('address', e.target.value)}
-                      placeholder="ex : 12 rue des Lilas, 75014 Paris"
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="text" value={draft.address} onChange={e => setField('address', e.target.value)} placeholder="ex : 12 rue des Lilas, 75014 Paris" style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value">{display.address ? `📍 ${display.address}` : '—'}</div>
                   )}
@@ -248,14 +217,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Référent</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="text"
-                      value={draft.contact}
-                      onChange={e => setField('contact', e.target.value)}
-                      placeholder="ex : Mme D. Lambert"
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="text" value={draft.contact} onChange={e => setField('contact', e.target.value)} placeholder="ex : Mme D. Lambert" style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value">{display.contact ? `👤 ${display.contact}` : '—'}</div>
                   )}
@@ -264,14 +226,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                 <div className="info-tile">
                   <div className="info-label">Téléphone</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="text"
-                      value={draft.phone}
-                      onChange={e => setField('phone', e.target.value)}
-                      placeholder="ex : 01 45 23 67 89"
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="text" value={draft.phone} onChange={e => setField('phone', e.target.value)} placeholder="ex : 01 45 23 67 89" style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value">{display.phone ? `📞 ${display.phone}` : '—'}</div>
                   )}
@@ -280,14 +235,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                 <div className="info-tile">
                   <div className="info-label">Email</div>
                   {editing && draft ? (
-                    <input
-                      className="form-input"
-                      type="email"
-                      value={draft.email}
-                      onChange={e => setField('email', e.target.value)}
-                      placeholder="ex : contact@structure.fr"
-                      style={{ marginTop: 4 }}
-                    />
+                    <input className="form-input" type="email" value={draft.email} onChange={e => setField('email', e.target.value)} placeholder="ex : contact@structure.fr" style={{ marginTop: 4 }} />
                   ) : (
                     <div className="info-value" style={{ wordBreak: 'break-all' }}>{display.email ? `✉ ${display.email}` : '—'}</div>
                   )}
@@ -301,14 +249,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
             <div className="card-header"><div className="card-title">Notes</div></div>
             <div className="card-body">
               {editing && draft ? (
-                <textarea
-                  className="form-input"
-                  value={draft.notes}
-                  onChange={e => setField('notes', e.target.value)}
-                  rows={5}
-                  style={{ resize: 'vertical' }}
-                  placeholder="Informations complémentaires, conditions d'accès, particularités…"
-                />
+                <textarea className="form-input" value={draft.notes} onChange={e => setField('notes', e.target.value)} rows={5} style={{ resize: 'vertical' }} placeholder="Informations complémentaires, conditions d'accès, particularités…" />
               ) : display.notes ? (
                 <p style={{ fontSize: 13, color: 'var(--slate-600)', lineHeight: 1.6, margin: 0 }}>{display.notes}</p>
               ) : (
@@ -352,12 +293,10 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                       <div
                         key={s.id}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--sp-2) var(--sp-3)', background: 'var(--slate-50)', borderRadius: 8, cursor: 'pointer' }}
-                        onClick={() => onSelectSession(s.id, sessionLabel(s.date))}
+                        onClick={() => onSelectSession(s.id, formatSessionLabel(s.date))}
                       >
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate-900)', textTransform: 'capitalize' }}>
-                            {formatFullDate(s.date)}
-                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate-900)', textTransform: 'capitalize' }}>{formatFullDate(s.date)}</div>
                           {s.handler && <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 1 }}>{s.handler}</div>}
                         </div>
                         <span className="badge badge-repos" style={{ flexShrink: 0, marginLeft: 'var(--sp-2)' }}><span className="badge-dot" />Planifiée</span>
@@ -379,12 +318,10 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                       <div
                         key={s.id}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--sp-2) var(--sp-3)', background: 'var(--slate-50)', borderRadius: 8, cursor: 'pointer' }}
-                        onClick={() => onSelectSession(s.id, sessionLabel(s.date))}
+                        onClick={() => onSelectSession(s.id, formatSessionLabel(s.date))}
                       >
                         <div>
-                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate-900)', textTransform: 'capitalize' }}>
-                            {formatFullDate(s.date)}
-                          </div>
+                          <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate-900)', textTransform: 'capitalize' }}>{formatFullDate(s.date)}</div>
                           {s.handler && <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 1 }}>{s.handler}</div>}
                         </div>
                         <span className="badge badge-actif" style={{ flexShrink: 0, marginLeft: 'var(--sp-2)' }}><span className="badge-dot" />Effectuée</span>

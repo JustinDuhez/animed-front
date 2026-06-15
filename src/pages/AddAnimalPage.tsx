@@ -2,6 +2,8 @@ import { useState, FormEvent } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal, Status, Vaccine } from '../data/animal.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
 
 interface Props {
   onBack: () => void
@@ -111,25 +113,17 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Nouvel animal</h1>
-          <p className="page-subtitle">Remplissez les informations pour ajouter un animal au registre</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          <button type="button" className="btn btn-secondary" onClick={onBack}>Annuler</button>
-          <button form="add-animal-form" type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Enregistrement…' : '✓ Enregistrer'}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Nouvel animal"
+        subtitle="Remplissez les informations pour ajouter un animal au registre"
+      >
+        <button type="button" className="btn btn-secondary" onClick={onBack}>Annuler</button>
+        <button form="add-animal-form" type="submit" className="btn btn-primary" disabled={submitting}>
+          {submitting ? 'Enregistrement…' : '✓ Enregistrer'}
+        </button>
+      </PageHeader>
 
-      {error && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">✕</span>
-          <div className="alert-body"><div className="alert-title">{error}</div></div>
-        </div>
-      )}
+      {error && <AlertBanner title={error} />}
 
       <form id="add-animal-form" onSubmit={handleSubmit}>
         <div className="add-animal-layout">

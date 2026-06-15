@@ -6,11 +6,9 @@ import type { Session } from '../data/session.js'
 import type { Organization } from '../data/organization.js'
 import KpiCard from '../components/ui/KpiCard.js'
 import SessionCard from '../components/ui/SessionCard.js'
-
-function formatDate(iso: string): string {
-  if (!iso || iso === '—') return '—'
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
-}
+import EmptyState from '../components/ui/EmptyState.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
+import { formatSessionLabel, formatShortDate } from '../utils/format.js'
 
 interface Props {
   onSelectAnimal: (id: string, name: string) => void
@@ -96,7 +94,7 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
   const todayLabel = now.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
   const todayCapitalized = todayLabel.charAt(0).toUpperCase() + todayLabel.slice(1)
 
-  if (loading) return <div className="empty-state"><div className="empty-icon">🐾</div><div className="empty-title">Chargement…</div></div>
+  if (loading) return <EmptyState icon="🐾" title="Chargement…" />
 
   const kpiCards = [
     { icon: '🐾', iconColor: 'green',  value: String(activeAnimals),  label: 'Animaux actifs',        sub: `${animals.length} au total · ${animals.filter(a => a.status === 'repos').length} en repos` },
@@ -116,18 +114,12 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
       </div>
 
       {alertCount > 0 && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">⚠</span>
-          <div className="alert-body">
-            <div className="alert-title">
-              {alertCount} alerte{alertCount > 1 ? 's' : ''} sanitaire{alertCount > 1 ? 's' : ''} nécessite{alertCount === 1 ? '' : 'nt'} votre attention
-            </div>
-            <div className="alert-text">
-              {alertAnimals.slice(0, 3).map(a => a.name).join(', ')}{alertCount > 3 ? ` et ${alertCount - 3} autre${alertCount - 3 > 1 ? 's' : ''}` : ''} — vérifiez les vaccinations avant les prochaines séances.
-            </div>
-          </div>
-          <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Voir les alertes</button>
-        </div>
+        <AlertBanner
+          icon="⚠"
+          title={`${alertCount} alerte${alertCount > 1 ? 's' : ''} sanitaire${alertCount > 1 ? 's' : ''} nécessite${alertCount === 1 ? '' : 'nt'} votre attention`}
+          description={`${alertAnimals.slice(0, 3).map(a => a.name).join(', ')}${alertCount > 3 ? ` et ${alertCount - 3} autre${alertCount - 3 > 1 ? 's' : ''}` : ''} — vérifiez les vaccinations avant les prochaines séances.`}
+          action={<button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Voir les alertes</button>}
+        />
       )}
 
       {/* KPI grid */}
@@ -180,7 +172,7 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
                     </span>
                   </td>
                   <td>{a.sessions[currentMonth] ?? 0}</td>
-                  <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>{formatDate(a.lastSession)}</td>
+                  <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>{formatShortDate(a.lastSession)}</td>
                   <td style={{ color: a.handler === '—' ? 'var(--slate-300)' : 'var(--slate-600)' }}>{a.handler}</td>
                   <td className="td-actions">
                     <button className="td-action-btn" title="Voir la fiche" onClick={() => onSelectAnimal(a.id, a.name)}>🔗</button>
@@ -209,18 +201,14 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
               <div style={{ textAlign: 'center', color: 'var(--slate-400)', fontSize: 13, padding: 'var(--sp-4) 0' }}>
                 Aucune séance planifiée
               </div>
-            ) : upcomingSessions.map(s => {
-              const d = new Date(s.date)
-              const label = `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-              return (
-                <SessionCard
-                  key={s.id}
-                  session={s}
-                  animal={animalMap[s.animalId]}
-                  onClick={() => onSelectSession(s.id, label)}
-                />
-              )
-            })}
+            ) : upcomingSessions.map(s => (
+              <SessionCard
+                key={s.id}
+                session={s}
+                animal={animalMap[s.animalId]}
+                onClick={() => onSelectSession(s.id, formatSessionLabel(s.date))}
+              />
+            ))}
           </div>
           <div className="card-footer">
             <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={onAddSession}>
