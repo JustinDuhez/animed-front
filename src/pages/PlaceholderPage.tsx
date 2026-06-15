@@ -1,3 +1,6 @@
+import PageHeader from '../components/ui/PageHeader.js'
+import EmptyState from '../components/ui/EmptyState.js'
+
 interface Props {
   icon: string
   title: string
@@ -8,22 +11,16 @@ interface Props {
 export default function PlaceholderPage({ icon, title, description, cta }: Props) {
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">{title}</h1>
-          <p className="page-subtitle">{description}</p>
-        </div>
+      <PageHeader title={title} subtitle={description}>
         {cta && <button className="btn btn-primary">+ {cta}</button>}
-      </div>
+      </PageHeader>
       <div className="table-wrapper">
-        <div className="empty-state">
-          <div className="empty-icon">{icon}</div>
-          <div className="empty-title">Page en construction</div>
-          <div className="empty-text">
-            Cette section sera disponible prochainement. Le shell de navigation est opérationnel.
-          </div>
-          <button className="btn btn-secondary">Retour au tableau de bord</button>
-        </div>
+        <EmptyState
+          icon={icon}
+          title="Page en construction"
+          description="Cette section sera disponible prochainement. Le shell de navigation est opérationnel."
+          action={<button className="btn btn-secondary">Retour au tableau de bord</button>}
+        />
       </div>
     </>
   )

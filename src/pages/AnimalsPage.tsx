@@ -4,20 +4,20 @@ import { db } from '../firebase.js'
 import { seedAnimalsIfEmpty } from '../utils/seedAnimals.js'
 import { seedSessionsIfEmpty } from '../utils/seedSessions.js'
 import { seedOrganizationsIfEmpty } from '../utils/seedOrganizations.js'
-import type { Animal, Status } from '../data/animal.js'
+import type { Animal } from '../data/animal.js'
+import { ANIMAL_STATUS_MAP } from '../utils/badges.js'
+import { formatShortDate } from '../utils/format.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
+import SearchBar from '../components/ui/SearchBar.js'
+import FilterBar from '../components/ui/FilterBar.js'
+import EmptyState from '../components/ui/EmptyState.js'
 
-type FilterTab   = 'tous' | 'actif' | 'repos' | 'alerte'
-type SortKey     = 'name' | 'species' | 'sessions' | 'handler'
-type SortDir     = 'asc' | 'desc'
+type FilterTab = 'tous' | 'actif' | 'repos' | 'alerte'
+type SortKey   = 'name' | 'species' | 'sessions' | 'handler'
+type SortDir   = 'asc' | 'desc'
 
 const PAGE_SIZE = 10
-
-const STATUS_BADGE: Record<Status, { cls: string; label: string }> = {
-  actif:    { cls: 'badge-actif',    label: 'Actif' },
-  repos:    { cls: 'badge-repos',    label: 'Repos' },
-  alerte:   { cls: 'badge-alerte',   label: 'Alerte' },
-  retraite: { cls: 'badge-retraite', label: 'Retraité' },
-}
 
 const FILTER_LABELS: Record<FilterTab, string> = {
   tous:   'Tous',
@@ -156,56 +156,42 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
 
   const pageNumbers = Array.from({ length: totalPages }, (_, i) => i + 1)
 
-  if (loading) return <div className="empty-state"><div className="empty-icon">🐾</div><div className="empty-title">Chargement…</div></div>
+  if (loading) return <EmptyState icon="🐾" title="Chargement…" />
+
+  const filterChips = (['tous', 'actif', 'repos', 'alerte'] as FilterTab[]).map(f => ({
+    key: f, label: FILTER_LABELS[f], count: counts[f],
+  }))
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Animaux</h1>
-          <p className="page-subtitle">{animals.length} animaux enregistrés · {counts.alerte} alertes sanitaires</p>
-        </div>
+      <PageHeader
+        title="Animaux"
+        subtitle={`${animals.length} animaux enregistrés · ${counts.alerte} alertes sanitaires`}
+      >
         <button className="btn btn-primary" onClick={onAddAnimal}>+ Ajouter un animal</button>
-      </div>
+      </PageHeader>
 
       {counts.alerte > 0 && filter !== 'alerte' && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">⚠</span>
-          <div className="alert-body">
-            <div className="alert-title">{counts.alerte} animaux nécessitent votre attention</div>
-            <div className="alert-text">Vaccinations expirées ou statut critique. Vérifiez avant les prochaines séances.</div>
-          </div>
-          <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }} onClick={() => handleFilter('alerte')}>
-            Voir les alertes
-          </button>
-        </div>
+        <AlertBanner
+          icon="⚠"
+          title={`${counts.alerte} animaux nécessitent votre attention`}
+          description="Vaccinations expirées ou statut critique. Vérifiez avant les prochaines séances."
+          action={
+            <button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }} onClick={() => handleFilter('alerte')}>
+              Voir les alertes
+            </button>
+          }
+        />
       )}
 
       <div className="table-wrapper">
         <div className="table-toolbar">
-          <div className="search-bar" style={{ maxWidth: 280 }}>
-            <span className="search-icon">🔍</span>
-            <input
-              type="text"
-              placeholder="Nom, ID, espèce, intervenant…"
-              value={search}
-              onChange={e => handleSearch(e.target.value)}
-            />
-          </div>
-          <div className="filter-bar" style={{ flex: 1 }}>
-            {(['tous', 'actif', 'repos', 'alerte'] as FilterTab[]).map(f => (
-              <div
-                key={f}
-                className={`filter-chip${filter === f ? ' active' : ''}`}
-                onClick={() => handleFilter(f)}
-              >
-                {FILTER_LABELS[f]}
-                <span style={{ fontSize: 10, fontWeight: 700, opacity: 0.65, marginLeft: 3 }}>
-                  {counts[f]}
-                </span>
-              </div>
-            ))}
-          </div>
+          <SearchBar
+            placeholder="Nom, ID, espèce, intervenant…"
+            value={search}
+            onChange={handleSearch}
+          />
+          <FilterBar chips={filterChips} active={filter} onChange={f => handleFilter(f as FilterTab)} />
           <button className="btn btn-secondary btn-sm">⬇ Exporter</button>
         </div>
 
@@ -243,20 +229,16 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
             {paginated.length === 0 ? (
               <tr>
                 <td colSpan={9}>
-                  <div className="empty-state">
-                    <div className="empty-icon">🐾</div>
-                    <div className="empty-title">Aucun animal trouvé</div>
-                    <div className="empty-text">
-                      {search
-                        ? `Aucun résultat pour « ${search} ». Essayez un autre terme.`
-                        : 'Aucun animal dans cette catégorie.'}
-                    </div>
-                    {search && (
-                      <button className="btn btn-secondary" onClick={() => handleSearch('')}>
-                        Réinitialiser la recherche
-                      </button>
-                    )}
-                  </div>
+                  <EmptyState
+                    icon="🐾"
+                    title="Aucun animal trouvé"
+                    description={search
+                      ? `Aucun résultat pour « ${search} ». Essayez un autre terme.`
+                      : 'Aucun animal dans cette catégorie.'}
+                    action={search
+                      ? <button className="btn btn-secondary" onClick={() => handleSearch('')}>Réinitialiser la recherche</button>
+                      : undefined}
+                  />
                 </td>
               </tr>
             ) : paginated.map(a => (
@@ -288,9 +270,9 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
                 </td>
                 <td style={{ color: 'var(--slate-600)' }}>{a.species}</td>
                 <td>
-                  <span className={`badge ${(STATUS_BADGE[a.status] ?? STATUS_BADGE.alerte).cls}`}>
+                  <span className={`badge ${(ANIMAL_STATUS_MAP[a.status] ?? ANIMAL_STATUS_MAP.alerte).cls}`}>
                     <span className="badge-dot" />
-                    {(STATUS_BADGE[a.status] ?? STATUS_BADGE.alerte).label}
+                    {(ANIMAL_STATUS_MAP[a.status] ?? ANIMAL_STATUS_MAP.alerte).label}
                   </span>
                 </td>
                 <td>
@@ -301,7 +283,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
                 </td>
                 <td>{a.sessions[new Date().toISOString().slice(0, 7)] ?? 0}</td>
                 <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>
-                  {a.lastSession}
+                  {formatShortDate(a.lastSession)}
                 </td>
                 <td style={{ color: a.handler === '—' ? 'var(--slate-300)' : 'var(--slate-600)' }}>
                   {a.handler}

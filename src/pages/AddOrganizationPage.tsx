@@ -2,6 +2,8 @@ import { useState, FormEvent } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { OrgType, Organization } from '../data/organization.js'
+import PageHeader from '../components/ui/PageHeader.js'
+import AlertBanner from '../components/ui/AlertBanner.js'
 
 const TYPE_OPTIONS: { value: OrgType; label: string }[] = [
   { value: 'ehpad',    label: 'EHPAD' },
@@ -65,25 +67,17 @@ export default function AddOrganizationPage({ onBack, onSaved }: Props) {
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Nouvelle structure</h1>
-          <p className="page-subtitle">Renseignez les informations de l'établissement partenaire</p>
-        </div>
-        <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
-          <button type="button" className="btn btn-secondary" onClick={onBack}>Annuler</button>
-          <button form="add-org-form" type="submit" className="btn btn-primary" disabled={submitting}>
-            {submitting ? 'Enregistrement…' : '✓ Enregistrer'}
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        title="Nouvelle structure"
+        subtitle="Renseignez les informations de l'établissement partenaire"
+      >
+        <button type="button" className="btn btn-secondary" onClick={onBack}>Annuler</button>
+        <button form="add-org-form" type="submit" className="btn btn-primary" disabled={submitting}>
+          {submitting ? 'Enregistrement…' : '✓ Enregistrer'}
+        </button>
+      </PageHeader>
 
-      {error && (
-        <div className="alert alert-warning" style={{ marginBottom: 'var(--sp-5)' }}>
-          <span className="alert-icon">✕</span>
-          <div className="alert-body"><div className="alert-title">{error}</div></div>
-        </div>
-      )}
+      {error && <AlertBanner title={error} />}
 
       <form id="add-org-form" onSubmit={handleSubmit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', maxWidth: 680 }}>
