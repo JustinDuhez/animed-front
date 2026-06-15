@@ -7,16 +7,7 @@ import { SESSION_STATUS_MAP } from '../utils/badges.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
-
-function formatFullDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+import { formatFullDate, formatTime } from '../utils/format.js'
 
 interface Props {
   id: string

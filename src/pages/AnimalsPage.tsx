@@ -6,6 +6,7 @@ import { seedSessionsIfEmpty } from '../utils/seedSessions.js'
 import { seedOrganizationsIfEmpty } from '../utils/seedOrganizations.js'
 import type { Animal } from '../data/animal.js'
 import { ANIMAL_STATUS_MAP } from '../utils/badges.js'
+import { formatShortDate } from '../utils/format.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import SearchBar from '../components/ui/SearchBar.js'
@@ -282,7 +283,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
                 </td>
                 <td>{a.sessions[new Date().toISOString().slice(0, 7)] ?? 0}</td>
                 <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>
-                  {a.lastSession}
+                  {formatShortDate(a.lastSession)}
                 </td>
                 <td style={{ color: a.handler === '—' ? 'var(--slate-300)' : 'var(--slate-600)' }}>
                   {a.handler}

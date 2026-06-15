@@ -8,6 +8,7 @@ import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import SessionGridCard from '../components/ui/SessionGridCard.js'
+import { formatMonthHeading, formatSessionLabel } from '../utils/format.js'
 
 type FilterTab = 'all' | 'completed' | 'planned' | 'cancelled'
 
@@ -16,12 +17,6 @@ const FILTER_LABELS: Record<FilterTab, string> = {
   completed: 'Effectuées',
   planned:   'Planifiées',
   cancelled: 'Annulées',
-}
-
-function formatMonthHeading(yearMonth: string): string {
-  const [year, month] = yearMonth.split('-')
-  return new Date(Number(year), Number(month) - 1, 1)
-    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
 }
 
 interface Props {
@@ -135,19 +130,15 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
                 {formatMonthHeading(month)}
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--sp-3)' }}>
-                {monthSessions.map(s => {
-                  const d = new Date(s.date)
-                  const label = `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${new Date(s.date).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                  return (
-                    <SessionGridCard
-                      key={s.id}
-                      session={s}
-                      animal={animals[s.animalId]}
-                      onSelect={() => onSelectSession(s.id, label)}
-                      onSelectAnimal={onSelectAnimal}
-                    />
-                  )
-                })}
+                {monthSessions.map(s => (
+                  <SessionGridCard
+                    key={s.id}
+                    session={s}
+                    animal={animals[s.animalId]}
+                    onSelect={() => onSelectSession(s.id, formatSessionLabel(s.date))}
+                    onSelectAnimal={onSelectAnimal}
+                  />
+                ))}
               </div>
             </div>
           ))}

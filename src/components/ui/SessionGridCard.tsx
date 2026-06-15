@@ -1,10 +1,7 @@
 import type { Session } from '../../data/session.js'
 import type { Animal } from '../../data/animal.js'
 import { SESSION_STATUS_MAP } from '../../utils/badges.js'
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
+import { formatTime } from '../../utils/format.js'
 
 interface Props {
   session: Session

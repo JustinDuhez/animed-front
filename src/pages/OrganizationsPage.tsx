@@ -7,6 +7,7 @@ import PageHeader from '../components/ui/PageHeader.js'
 import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
+import { formatDateTime } from '../utils/format.js'
 
 const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
   ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
@@ -21,12 +22,6 @@ const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; ico
 type FilterTab = 'all' | OrgType
 
 const ALL_TYPES: OrgType[] = ['ehpad', 'ime', 'clinique', 'creche', 'hopital', 'ecole', 'autre']
-
-function formatDate(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' }) +
-    ' · ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
 
 interface Props {
   onAddOrganization: () => void
@@ -185,7 +180,7 @@ export default function OrganizationsPage({ onAddOrganization, onSelectOrganizat
                       <>
                         <div style={{ fontSize: 10, color: 'var(--slate-400)', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Prochaine</div>
                         <div style={{ fontSize: 11, color: 'var(--green-600)', fontWeight: 600, marginTop: 2 }}>
-                          {formatDate(s.nextSession.date)}
+                          {formatDateTime(s.nextSession.date)}
                         </div>
                       </>
                     ) : (

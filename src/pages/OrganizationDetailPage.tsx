@@ -6,6 +6,7 @@ import type { Session } from '../data/session.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
+import { formatFullDate, formatSessionLabel } from '../utils/format.js'
 
 const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
   ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
@@ -26,21 +27,6 @@ const TYPE_OPTIONS: { value: OrgType; label: string }[] = [
   { value: 'ecole',    label: 'École' },
   { value: 'autre',    label: 'Autre' },
 ]
-
-function formatFullDate(iso: string): string {
-  return new Date(iso).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-  })
-}
-
-function formatTime(iso: string): string {
-  return new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-}
-
-function sessionLabel(iso: string): string {
-  const d = new Date(iso)
-  return `${d.getDate()} ${d.toLocaleDateString('fr-FR', { month: 'long' })} · ${formatTime(iso)}`
-}
 
 interface Props {
   id: string
@@ -307,7 +293,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                       <div
                         key={s.id}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--sp-2) var(--sp-3)', background: 'var(--slate-50)', borderRadius: 8, cursor: 'pointer' }}
-                        onClick={() => onSelectSession(s.id, sessionLabel(s.date))}
+                        onClick={() => onSelectSession(s.id, formatSessionLabel(s.date))}
                       >
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate-900)', textTransform: 'capitalize' }}>{formatFullDate(s.date)}</div>
@@ -332,7 +318,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                       <div
                         key={s.id}
                         style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--sp-2) var(--sp-3)', background: 'var(--slate-50)', borderRadius: 8, cursor: 'pointer' }}
-                        onClick={() => onSelectSession(s.id, sessionLabel(s.date))}
+                        onClick={() => onSelectSession(s.id, formatSessionLabel(s.date))}
                       >
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--slate-900)', textTransform: 'capitalize' }}>{formatFullDate(s.date)}</div>

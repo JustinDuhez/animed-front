@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
-import { doc, onSnapshot, updateDoc, setDoc, deleteDoc, query, collection, where } from 'firebase/firestore'
-import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage'
+import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/firestore'
 import { db, storage } from '../firebase.js'
 import type { Animal, AnimalDocument, Status, Vaccine } from '../data/animal.js'
 import type { Session } from '../data/session.js'
@@ -9,16 +8,12 @@ import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import SessionGridCard from '../components/ui/SessionGridCard.js'
+import { formatMonthHeading, formatSessionLabel, formatShortDate } from '../utils/format.js'
+import { docIcon, formatFileSize, uploadDocument, deleteDocument } from '../utils/fileUpload.js'
 
 type Tab = 'infos' | 'seances' | 'documents'
 
 const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️']
-
-function formatMonthHeading(yearMonth: string): string {
-  const [year, month] = yearMonth.split('-')
-  return new Date(Number(year), Number(month) - 1, 1)
-    .toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' })
-}
 
 interface Props {
   id: string
@@ -31,8 +26,8 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [animal, setAnimal] = useState<Animal | null | undefined>(undefined)
   const [editing, setEditing] = useState(false)
-  const [draft, setDraft] = useState<Animal | null>(null)
-  const [saving, setSaving] = useState(false)
+  const [draft,   setDraft]   = useState<Animal | null>(null)
+  const [saving,    setSaving]    = useState(false)
   const [saveError, setSaveError] = useState('')
   const [sessionRecords, setSessions] = useState<Session[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(true)
@@ -76,32 +71,11 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
     if (!file) return
     if (fileInputRef.current) fileInputRef.current.value = ''
 
-    const docId = `doc-${Date.now()}`
-    const storagePath = `animals/${id}/documents/${docId}`
     setUploading(true)
     setUploadProgress(0)
     setUploadError('')
-
     try {
-      const task = uploadBytesResumable(ref(storage, storagePath), file)
-      await new Promise<void>((resolve, reject) => {
-        task.on('state_changed',
-          snap => setUploadProgress(Math.round(snap.bytesTransferred / snap.totalBytes * 100)),
-          reject,
-          resolve
-        )
-      })
-      const url = await getDownloadURL(ref(storage, storagePath))
-      const adoc: AnimalDocument = {
-        id: docId,
-        name: file.name,
-        mimeType: file.type || 'application/octet-stream',
-        size: file.size,
-        url,
-        storagePath,
-        uploadedAt: new Date().toISOString(),
-      }
-      await setDoc(doc(db, 'animals', id, 'documents', docId), adoc)
+      await uploadDocument(file, `animals/${id}/documents`, db, storage, pct => setUploadProgress(pct))
     } catch {
       setUploadError('Erreur lors de l\'importation. Veuillez réessayer.')
     } finally {
@@ -112,25 +86,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
 
   async function handleDeleteDoc(adoc: AnimalDocument) {
     if (!window.confirm(`Supprimer « ${adoc.name} » ?`)) return
-    try {
-      await deleteObject(ref(storage, adoc.storagePath))
-    } catch { /* file may already be gone */ }
-    await deleteDoc(doc(db, 'animals', id, 'documents', adoc.id))
-  }
-
-  function docIcon(mimeType: string): string {
-    if (mimeType === 'application/pdf') return '📄'
-    if (mimeType.startsWith('image/')) return '🖼️'
-    if (mimeType.includes('word') || mimeType.includes('document')) return '📝'
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('csv')) return '📊'
-    if (mimeType.startsWith('video/')) return '🎥'
-    return '📎'
-  }
-
-  function formatSize(bytes: number): string {
-    if (bytes < 1024) return `${bytes} o`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} Ko`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+    await deleteDocument(adoc, `animals/${id}/documents`, db, storage)
   }
 
   function startEditing() {
@@ -323,7 +279,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                     <div className="info-label">Date de naissance</div>
                     {editing && draft
                       ? <input className="form-input" type="date" value={draft.birthDate === '—' ? '' : draft.birthDate} onChange={e => setField('birthDate', e.target.value || '—')} style={{ marginTop: 4 }} />
-                      : <div className="info-value">{d.birthDate}</div>}
+                      : <div className="info-value">{formatShortDate(d.birthDate)}</div>}
                   </div>
 
                   <div className="info-tile">
@@ -337,7 +293,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                     <div className="info-label">Dernier contrôle vét.</div>
                     {editing && draft
                       ? <input className="form-input" type="date" value={draft.lastVetCheck === '—' ? '' : draft.lastVetCheck} onChange={e => setField('lastVetCheck', e.target.value || '—')} style={{ marginTop: 4 }} />
-                      : <div className="info-value">{d.lastVetCheck}</div>}
+                      : <div className="info-value">{formatShortDate(d.lastVetCheck)}</div>}
                   </div>
 
                   <div className={`info-tile${!d.vaccineOk ? ' info-tile-alert' : ''}`}>
@@ -496,17 +452,13 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                           {formatMonthHeading(month)}
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: 'var(--sp-3)' }}>
-                          {monthSessions.map(s => {
-                            const dt = new Date(s.date)
-                            const label = `${dt.getDate()} ${dt.toLocaleDateString('fr-FR', { month: 'long' })} · ${dt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
-                            return (
-                              <SessionGridCard
-                                key={s.id}
-                                session={s}
-                                onSelect={() => onSelectSession(s.id, label)}
-                              />
-                            )
-                          })}
+                          {monthSessions.map(s => (
+                            <SessionGridCard
+                              key={s.id}
+                              session={s}
+                              onSelect={() => onSelectSession(s.id, formatSessionLabel(s.date))}
+                            />
+                          ))}
                         </div>
                       </div>
                     ))}
@@ -556,7 +508,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-800)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{adoc.name}</div>
                           <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 2 }}>
-                            {formatSize(adoc.size)} · {new Date(adoc.uploadedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            {formatFileSize(adoc.size)} · {new Date(adoc.uploadedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </div>
                         </div>
                         <a href={adoc.url} target="_blank" rel="noreferrer" className="td-action-btn" title="Télécharger">⬇</a>

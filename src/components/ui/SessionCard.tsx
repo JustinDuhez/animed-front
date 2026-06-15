@@ -1,18 +1,7 @@
 import type { Session } from '../../data/session.js'
 import type { Animal } from '../../data/animal.js'
-
-const SESSION_STATUS: Record<Session['status'], { cls: string; label: string }> = {
-  completed: { cls: 'badge-actif',  label: 'Effectuée' },
-  planned:   { cls: 'badge-repos',  label: 'Planifiée' },
-  cancelled: { cls: 'badge-alerte', label: 'Annulée'   },
-}
-
-function formatSessionDate(iso: string): string {
-  const d = new Date(iso)
-  const day  = d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })
-  const time = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-  return `${day} · ${time}`
-}
+import { SESSION_STATUS_MAP } from '../../utils/badges.js'
+import { formatDateTime } from '../../utils/format.js'
 
 interface Props {
   session: Session
@@ -21,7 +10,7 @@ interface Props {
 }
 
 export default function SessionCard({ session, animal, onClick }: Props) {
-  const { cls, label } = SESSION_STATUS[session.status]
+  const { cls, label } = SESSION_STATUS_MAP[session.status]
   return (
     <div
       className="session-card"
@@ -31,7 +20,7 @@ export default function SessionCard({ session, animal, onClick }: Props) {
       <div className="sc-header">
         <div>
           <div className="sc-title">{session.structure || '—'}</div>
-          <div className="sc-date">{formatSessionDate(session.date)}</div>
+          <div className="sc-date">{formatDateTime(session.date)}</div>
         </div>
         <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
       </div>
