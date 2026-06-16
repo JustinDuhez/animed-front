@@ -8,6 +8,7 @@ import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatFullDate, formatTime } from '../utils/format.js'
+import { useRole } from '../context/RoleContext.js'
 
 interface Props {
   id: string
@@ -16,6 +17,8 @@ interface Props {
 }
 
 export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props) {
+  const role = useRole()
+  const canWrite = role === 'admin' || role === 'editor'
   const [session,   setSession]   = useState<Session | null | undefined>(undefined)
   const [animal,    setAnimal]    = useState<Animal  | null | undefined>(undefined)
   const [editing,   setEditing]   = useState(false)
@@ -105,7 +108,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
         ) : (
           <>
             <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
-            <button className="btn btn-primary"   onClick={startEditing}>✏ Modifier</button>
+            {canWrite && <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>}
           </>
         )}
       </PageHeader>

@@ -8,6 +8,7 @@ const CRUMBS: Record<string, Array<{ label: string; key?: string }>> = {
   animals:    [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Animaux' }],
   sessions:   [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Séances' }],
   structures: [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Structures' }],
+  users:      [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Utilisateurs' }],
   staff:      [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Intervenants' }],
   alerts:     [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Alertes' }],
   settings:   [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Paramètres' }],

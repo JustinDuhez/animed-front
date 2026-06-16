@@ -2,6 +2,7 @@ rules_version = '2';
 
 // Collection: animals — Document fields described in data/animals.ts
 // Collection: sessions — Document fields described in data/animals.ts (Session interface)
+// Collection: users — Document fields described in data/user.ts
 
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -10,12 +11,38 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    function roleOf() {
+      let u = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(u) ? get(u).data.role : 'viewer';
+    }
+
+    function isAdmin()  { return roleOf() == 'admin'; }
+    function isEditor() { return roleOf() in ['admin', 'editor']; }
+
     function hasOnlyAllowedFields(fields) {
       return request.resource.data.keys().hasOnly(fields);
     }
 
     function hasRequiredFields(fields) {
       return request.resource.data.keys().hasAll(fields);
+    }
+
+    // ── Users collection ──────────────────────────────────────────
+
+    match /users/{uid} {
+      allow read:   if isAuthenticated() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAuthenticated()
+                    && request.auth.uid == uid
+                    && request.resource.data.role == 'viewer'
+                    && hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt']);
+      allow update: if isAuthenticated() && (
+                      isAdmin() ||
+                      // Users can update their own profile but cannot change their role
+                      (request.auth.uid == uid
+                        && request.resource.data.role == resource.data.role
+                        && hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt']))
+                    );
+      allow delete: if false;
     }
 
     // ── Animal validator ──────────────────────────────────────────
@@ -93,18 +120,20 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       allow create: if isAuthenticated()
+                    && isEditor()
                     && isValidAnimal()
                     && request.resource.data.id == animalId;
 
       allow update: if isAuthenticated()
+                    && isEditor()
                     && request.resource.data.id == resource.data.id;
 
-      allow delete: if isAuthenticated();
+      allow delete: if isAuthenticated() && isAdmin();
 
       match /documents/{docId} {
-        allow read: if isAuthenticated();
-        allow create: if isAuthenticated() && request.resource.data.id == docId;
-        allow delete: if isAuthenticated();
+        allow read:   if isAuthenticated();
+        allow create: if isAuthenticated() && isEditor() && request.resource.data.id == docId;
+        allow delete: if isAuthenticated() && isEditor();
       }
     }
 
@@ -114,15 +143,17 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       allow create: if isAuthenticated()
+                    && isEditor()
                     && isValidSession()
                     && request.resource.data.id == sessionId;
 
       allow update: if isAuthenticated()
+                    && isEditor()
                     && isValidSession()
                     && request.resource.data.id == resource.data.id
                     && request.resource.data.animalId == resource.data.animalId;
 
-      allow delete: if isAuthenticated();
+      allow delete: if isAuthenticated() && isAdmin();
     }
 
     // ── Organizations collection ──────────────────────────────────
@@ -131,14 +162,16 @@ service cloud.firestore {
       allow read: if isAuthenticated();
 
       allow create: if isAuthenticated()
+                    && isEditor()
                     && isValidOrganization()
                     && request.resource.data.id == orgId;
 
       allow update: if isAuthenticated()
+                    && isEditor()
                     && isValidOrganization()
                     && request.resource.data.id == resource.data.id;
 
-      allow delete: if isAuthenticated();
+      allow delete: if isAuthenticated() && isAdmin();
     }
 
     // Deny everything else

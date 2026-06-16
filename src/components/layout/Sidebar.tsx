@@ -3,6 +3,8 @@ import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../../firebase.js'
 import type { User } from 'firebase/auth'
 import type { Animal } from '../../data/animal.js'
+import { useRole } from '../../context/RoleContext.js'
+import { ROLE_LABELS } from '../../utils/badges.js'
 
 interface NavItem {
   icon: string
@@ -42,6 +44,8 @@ const NAV: NavSection[] = [
   },
 ]
 
+const ADMIN_NAV_ITEM: NavItem = { icon: '👥', label: 'Utilisateurs', key: 'users' }
+
 function initials(user: User): string {
   if (user.displayName) {
     return user.displayName
@@ -67,6 +71,7 @@ interface Props {
 }
 
 export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Props) {
+  const role = useRole()
   const [open, setOpen] = useState(false)
   const [alertCount, setAlertCount] = useState(0)
   const footerRef = useRef<HTMLDivElement>(null)
@@ -106,7 +111,7 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
         {NAV.map((section) => (
           <div key={section.label} className="sb-section">
             <div className="sb-section-label">{section.label}</div>
-            {section.items.map((item) => (
+            {[...section.items, ...(role === 'admin' && section.label === 'Paramètres' ? [ADMIN_NAV_ITEM] : [])].map((item) => (
               <button
                 key={item.key}
                 className={`sb-link${activePage === item.key ? ' active' : ''}`}
@@ -156,7 +161,7 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
           <div className="sb-avatar">{initials(user)}</div>
           <div>
             <div className="sb-user-name">{shortName(user)}</div>
-            <div className="sb-user-role">Administrateur</div>
+            <div className="sb-user-role">{role ? ROLE_LABELS[role] : '…'}</div>
           </div>
           <span className="sb-user-chevron">{open ? '▲' : '▼'}</span>
         </div>

@@ -4,6 +4,7 @@ import { db, storage } from '../firebase.js'
 import type { Animal, AnimalDocument, Status, Vaccine } from '../data/animal.js'
 import type { Session } from '../data/session.js'
 import { ANIMAL_STATUS_MAP } from '../utils/badges.js'
+import { useRole } from '../context/RoleContext.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
@@ -23,6 +24,8 @@ interface Props {
 }
 
 export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession }: Props) {
+  const role = useRole()
+  const canWrite = role === 'admin' || role === 'editor'
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [animal, setAnimal] = useState<Animal | null | undefined>(undefined)
   const [editing, setEditing] = useState(false)
@@ -192,7 +195,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
             </button>
           </>
         ) : (
-          <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>
+          canWrite ? <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button> : null
         )}
       </PageHeader>
 
@@ -471,11 +474,13 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
               <>
                 <input ref={fileInputRef} type="file" style={{ display: 'none' }} onChange={handleUpload} />
 
-                <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--sp-4)' }}>
-                  <button className="btn btn-primary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
-                    {uploading ? `Importation… ${uploadProgress}%` : '⬆ Importer un document'}
-                  </button>
-                </div>
+                {canWrite && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 'var(--sp-4)' }}>
+                    <button className="btn btn-primary btn-sm" onClick={() => fileInputRef.current?.click()} disabled={uploading}>
+                      {uploading ? `Importation… ${uploadProgress}%` : '⬆ Importer un document'}
+                    </button>
+                  </div>
+                )}
 
                 {uploading && (
                   <div style={{ marginBottom: 'var(--sp-4)', height: 4, background: 'var(--slate-100)', borderRadius: 9999, overflow: 'hidden' }}>
@@ -512,7 +517,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                           </div>
                         </div>
                         <a href={adoc.url} target="_blank" rel="noreferrer" className="td-action-btn" title="Télécharger">⬇</a>
-                        <button className="td-action-btn danger" title="Supprimer" onClick={() => handleDeleteDoc(adoc)}>🗑</button>
+                        {canWrite && <button className="td-action-btn danger" title="Supprimer" onClick={() => handleDeleteDoc(adoc)}>🗑</button>}
                       </div>
                     ))}
                   </div>
@@ -526,13 +531,15 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
 
           {/* Schedule session */}
-          <div className="card">
-            <div className="card-body">
-              <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={onAddSession}>
-                + Planifier une séance
-              </button>
+          {canWrite && (
+            <div className="card">
+              <div className="card-body">
+                <button className="btn btn-primary btn-sm" style={{ width: '100%', justifyContent: 'center' }} onClick={onAddSession}>
+                  + Planifier une séance
+                </button>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Vaccine status */}
           <div className="card">
@@ -602,45 +609,47 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
           </div>
 
           {/* Status */}
-          <div className="card">
-            <div className="card-header">
-              <div className="card-title">Statut</div>
-              <span className={`badge ${statusCls}`}><span className="badge-dot" />{statusLabel}</span>
+          {(canWrite || editing) && (
+            <div className="card">
+              <div className="card-header">
+                <div className="card-title">Statut</div>
+                <span className={`badge ${statusCls}`}><span className="badge-dot" />{statusLabel}</span>
+              </div>
+              <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                {editing && draft ? (
+                  <select className="form-select" value={draft.status} onChange={e => setField('status', e.target.value as Status)}>
+                    <option value="actif">Actif</option>
+                    <option value="repos">Repos</option>
+                    <option value="alerte">Alerte</option>
+                    <option value="retraite">Retraité</option>
+                  </select>
+                ) : (
+                  <>
+                    {animal.status === 'repos' ? (
+                      <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }}
+                        onClick={() => updateStatus('actif')}>
+                        Remettre en activité
+                      </button>
+                    ) : animal.status !== 'retraite' ? (
+                      <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }}
+                        onClick={() => updateStatus('repos')}>
+                        Mettre en repos
+                      </button>
+                    ) : null}
+                    {animal.status !== 'retraite' && (
+                      <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', color: 'var(--slate-500)' }}
+                        onClick={() => {
+                          if (window.confirm(`Mettre ${animal.name} à la retraite ? Le statut passera à "Retraité" et l'animal ne sera plus actif.`))
+                            updateStatus('retraite')
+                        }}>
+                        Mettre à la retraite
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-            <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
-              {editing && draft ? (
-                <select className="form-select" value={draft.status} onChange={e => setField('status', e.target.value as Status)}>
-                  <option value="actif">Actif</option>
-                  <option value="repos">Repos</option>
-                  <option value="alerte">Alerte</option>
-                  <option value="retraite">Retraité</option>
-                </select>
-              ) : (
-                <>
-                  {animal.status === 'repos' ? (
-                    <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }}
-                      onClick={() => updateStatus('actif')}>
-                      Remettre en activité
-                    </button>
-                  ) : animal.status !== 'retraite' ? (
-                    <button className="btn btn-secondary btn-sm" style={{ width: '100%', justifyContent: 'center' }}
-                      onClick={() => updateStatus('repos')}>
-                      Mettre en repos
-                    </button>
-                  ) : null}
-                  {animal.status !== 'retraite' && (
-                    <button className="btn btn-ghost btn-sm" style={{ width: '100%', justifyContent: 'center', color: 'var(--slate-500)' }}
-                      onClick={() => {
-                        if (window.confirm(`Mettre ${animal.name} à la retraite ? Le statut passera à "Retraité" et l'animal ne sera plus actif.`))
-                          updateStatus('retraite')
-                      }}>
-                      Mettre à la retraite
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
+          )}
 
         </div>
       </div>
