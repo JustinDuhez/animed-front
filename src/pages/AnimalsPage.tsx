@@ -6,6 +6,7 @@ import { seedSessionsIfEmpty } from '../utils/seedSessions.js'
 import { seedOrganizationsIfEmpty } from '../utils/seedOrganizations.js'
 import type { Animal } from '../data/animal.js'
 import { ANIMAL_STATUS_MAP } from '../utils/badges.js'
+import { useRole } from '../context/RoleContext.js'
 import { formatShortDate } from '../utils/format.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
@@ -46,6 +47,7 @@ interface Props {
 }
 
 export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
+  const canWrite = useRole() !== 'viewer'
   const [animals,  setAnimals]  = useState<Animal[]>([])
   const [loading,  setLoading]  = useState(true)
   const [search,   setSearch]   = useState('')
@@ -168,7 +170,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
         title="Animaux"
         subtitle={`${animals.length} animaux enregistrés · ${counts.alerte} alertes sanitaires`}
       >
-        <button className="btn btn-primary" onClick={onAddAnimal}>+ Ajouter un animal</button>
+        {canWrite && <button className="btn btn-primary" onClick={onAddAnimal}>+ Ajouter un animal</button>}
       </PageHeader>
 
       {counts.alerte > 0 && filter !== 'alerte' && (

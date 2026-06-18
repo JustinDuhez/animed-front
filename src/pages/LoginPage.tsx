@@ -4,7 +4,8 @@ import {
   createUserWithEmailAndPassword,
   updateProfile,
 } from 'firebase/auth'
-import { auth } from '../firebase.js'
+import { doc, setDoc } from 'firebase/firestore'
+import { auth, db } from '../firebase.js'
 
 function getErrorMessage(code: string): string {
   switch (code) {
@@ -58,9 +59,19 @@ export default function LoginPage() {
         await signInWithEmailAndPassword(auth, email, password)
       } else {
         const credential = await createUserWithEmailAndPassword(auth, email, password)
-        if (name.trim()) {
-          await updateProfile(credential.user, { displayName: name.trim() })
+        const trimmedName = name.trim()
+        if (trimmedName) {
+          await updateProfile(credential.user, { displayName: trimmedName })
         }
+        // Write the Firestore document after updateProfile so displayName is correct.
+        // RoleContext may have already created it with an empty displayName (race condition),
+        // so we overwrite it here with the definitive values.
+        await setDoc(doc(db, 'users', credential.user.uid), {
+          email:       email,
+          displayName: trimmedName,
+          role:        'viewer',
+          createdAt:   new Date().toISOString(),
+        })
       }
     } catch (err: any) {
       setError(getErrorMessage(err.code))

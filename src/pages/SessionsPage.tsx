@@ -9,6 +9,7 @@ import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import SessionGridCard from '../components/ui/SessionGridCard.js'
 import { formatMonthHeading, formatSessionLabel } from '../utils/format.js'
+import { useRole } from '../context/RoleContext.js'
 
 type FilterTab = 'all' | 'completed' | 'planned' | 'cancelled'
 
@@ -26,6 +27,7 @@ interface Props {
 }
 
 export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSession }: Props) {
+  const canWrite = useRole() !== 'viewer'
   const [sessions,  setSessions]  = useState<Session[]>([])
   const [animals,   setAnimals]   = useState<Record<string, Animal>>({})
   const [loading,   setLoading]   = useState(true)
@@ -93,7 +95,7 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
         title="Séances"
         subtitle={`${counts.all} séance${counts.all !== 1 ? 's' : ''} · ${counts.planned} planifiée${counts.planned !== 1 ? 's' : ''}`}
       >
-        <button className="btn btn-primary" onClick={onAddSession}>+ Planifier une séance</button>
+        {canWrite && <button className="btn btn-primary" onClick={onAddSession}>+ Planifier une séance</button>}
       </PageHeader>
 
       <div className="table-wrapper" style={{ marginBottom: 'var(--sp-5)' }}>
