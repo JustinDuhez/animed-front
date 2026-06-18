@@ -8,6 +8,7 @@ import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatDateTime } from '../utils/format.js'
+import { useRole } from '../context/RoleContext.js'
 
 const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
   ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
@@ -29,6 +30,7 @@ interface Props {
 }
 
 export default function OrganizationsPage({ onAddOrganization, onSelectOrganization }: Props) {
+  const canWrite = useRole() !== 'viewer'
   const [orgs,     setOrgs]     = useState<Organization[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -105,7 +107,7 @@ export default function OrganizationsPage({ onAddOrganization, onSelectOrganizat
         title="Structures"
         subtitle={`${orgs.length} structure${orgs.length !== 1 ? 's' : ''} · ${activeCount} active${activeCount !== 1 ? 's' : ''}${inactiveCount > 0 ? ` · ${inactiveCount} inactive${inactiveCount !== 1 ? 's' : ''}` : ''}`}
       >
-        <button className="btn btn-primary" onClick={onAddOrganization}>+ Ajouter une structure</button>
+        {canWrite && <button className="btn btn-primary" onClick={onAddOrganization}>+ Ajouter une structure</button>}
       </PageHeader>
 
       <div className="table-wrapper" style={{ marginBottom: 'var(--sp-5)' }}>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { onAuthStateChanged, signOut, User } from 'firebase/auth'
 import { auth } from './firebase.js'
+import { RoleProvider } from './context/RoleContext.js'
 import AppLayout from './components/layout/AppLayout.js'
 import Dashboard from './pages/Dashboard.js'
 import AnimalsPage from './pages/AnimalsPage.js'
@@ -13,9 +14,10 @@ import OrganizationsPage from './pages/OrganizationsPage.js'
 import AddOrganizationPage from './pages/AddOrganizationPage.js'
 import OrganizationDetailPage from './pages/OrganizationDetailPage.js'
 import PlaceholderPage from './pages/PlaceholderPage.js'
+import UsersPage from './pages/UsersPage.js'
 import LoginPage from './pages/LoginPage.js'
 
-type PageKey = 'dashboard' | 'animals' | 'sessions' | 'structures' | 'staff' | 'alerts' | 'settings'
+type PageKey = 'dashboard' | 'animals' | 'sessions' | 'structures' | 'users' | 'staff' | 'alerts' | 'settings'
 
 function App() {
   const [page, setPage] = useState<PageKey>('dashboard')
@@ -56,6 +58,7 @@ function App() {
     : undefined
 
   return (
+    <RoleProvider>
     <AppLayout
       activePage={page}
       onNavigate={navigate}
@@ -130,10 +133,12 @@ function App() {
           onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
         />
       )}
+      {page === 'users'      && <UsersPage />}
       {page === 'staff'      && <PlaceholderPage icon="🥼" title="Intervenants"  description="18 intervenants actifs · Tous ACACED" cta="Ajouter un intervenant" />}
       {page === 'alerts'     && <PlaceholderPage icon="⚠️" title="Alertes"       description="5 alertes sanitaires actives" />}
       {page === 'settings'   && <PlaceholderPage icon="⚙️" title="Paramètres"    description="Configuration du back office" />}
     </AppLayout>
+    </RoleProvider>
   )
 }
 

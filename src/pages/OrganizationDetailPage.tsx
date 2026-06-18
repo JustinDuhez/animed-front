@@ -7,6 +7,7 @@ import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatFullDate, formatSessionLabel } from '../utils/format.js'
+import { useRole } from '../context/RoleContext.js'
 
 const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
   ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
@@ -35,6 +36,8 @@ interface Props {
 }
 
 export default function OrganizationDetailPage({ id, onBack, onSelectSession }: Props) {
+  const role = useRole()
+  const canWrite = role === 'admin' || role === 'editor'
   const [org,       setOrg]       = useState<Organization | null | undefined>(undefined)
   const [sessions,  setSessions]  = useState<Session[]>([])
   const [editing,   setEditing]   = useState(false)
@@ -147,7 +150,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
         ) : (
           <>
             <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
-            <button className="btn btn-primary"   onClick={startEditing}>✏ Modifier</button>
+            {canWrite && <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>}
           </>
         )}
       </PageHeader>
