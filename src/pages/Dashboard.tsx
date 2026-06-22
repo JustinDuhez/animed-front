@@ -11,12 +11,13 @@ import AlertBanner from '../components/ui/AlertBanner.js'
 import { formatSessionLabel, formatShortDate } from '../utils/format.js'
 
 interface Props {
-  onSelectAnimal: (id: string, name: string) => void
-  onAddSession: () => void
+  onSelectAnimal:  (id: string, name: string) => void
+  onAddSession:    () => void
   onSelectSession: (id: string, label: string) => void
+  onViewAlerts:    () => void
 }
 
-export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSession }: Props) {
+export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSession, onViewAlerts }: Props) {
   const [animals,  setAnimals]  = useState<Animal[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [orgs,     setOrgs]     = useState<Organization[]>([])
@@ -118,7 +119,7 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
           icon="⚠"
           title={`${alertCount} alerte${alertCount > 1 ? 's' : ''} sanitaire${alertCount > 1 ? 's' : ''} nécessite${alertCount === 1 ? '' : 'nt'} votre attention`}
           description={`${alertAnimals.slice(0, 3).map(a => a.name).join(', ')}${alertCount > 3 ? ` et ${alertCount - 3} autre${alertCount - 3 > 1 ? 's' : ''}` : ''} — vérifiez les vaccinations avant les prochaines séances.`}
-          action={<button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }}>Voir les alertes</button>}
+          action={<button className="btn btn-secondary btn-sm" style={{ flexShrink: 0 }} onClick={onViewAlerts}>Voir les alertes</button>}
         />
       )}
 

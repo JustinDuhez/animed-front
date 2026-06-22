@@ -42,16 +42,17 @@ function thClass(key: SortKey, sortKey: SortKey | null, sortDir: SortDir) {
 }
 
 interface Props {
-  onSelectAnimal: (id: string, name: string) => void
-  onAddAnimal: () => void
+  onSelectAnimal:  (id: string, name: string) => void
+  onAddAnimal:     () => void
+  initialFilter?:  FilterTab
 }
 
-export default function AnimalsPage({ onSelectAnimal, onAddAnimal }: Props) {
+export default function AnimalsPage({ onSelectAnimal, onAddAnimal, initialFilter }: Props) {
   const canWrite = useRole() !== 'viewer'
   const [animals,  setAnimals]  = useState<Animal[]>([])
   const [loading,  setLoading]  = useState(true)
   const [search,   setSearch]   = useState('')
-  const [filter,   setFilter]   = useState<FilterTab>('tous')
+  const [filter,   setFilter]   = useState<FilterTab>(initialFilter ?? 'tous')
   const [page,     setPage]     = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [sortKey,  setSortKey]  = useState<SortKey | null>('name')

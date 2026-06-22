@@ -27,20 +27,12 @@ const NAV: NavSection[] = [
       { icon: '🐾', label: 'Animaux',          key: 'animals' },
       { icon: '📋', label: 'Séances',          key: 'sessions' },
       { icon: '🏥', label: 'Structures',       key: 'structures' },
+      { icon: '🥼', label: 'Intervenants',     key: 'staff' },
     ],
   },
   {
-    label: 'Compte',
-    items: [
-      { icon: '🥼', label: 'Intervenants', key: 'staff' },
-      { icon: '⚠️',  label: 'Alertes',     key: 'alerts' },
-    ],
-  },
-  {
-    label: 'Paramètres',
-    items: [
-      { icon: '⚙️', label: 'Paramètres', key: 'settings' },
-    ],
+    label: 'Administrateur',
+    items: [],
   },
 ]
 
@@ -108,10 +100,13 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
       </div>
 
       <nav className="sb-nav">
-        {NAV.map((section) => (
+        {NAV.map((section) => {
+          const items = [...section.items, ...(role === 'admin' && section.label === 'Administrateur' ? [ADMIN_NAV_ITEM] : [])]
+          if (items.length === 0) return null
+          return (
           <div key={section.label} className="sb-section">
             <div className="sb-section-label">{section.label}</div>
-            {[...section.items, ...(role === 'admin' && section.label === 'Paramètres' ? [ADMIN_NAV_ITEM] : [])].map((item) => (
+            {items.map((item) => (
               <button
                 key={item.key}
                 className={`sb-link${activePage === item.key ? ' active' : ''}`}
@@ -131,7 +126,8 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
               </button>
             ))}
           </div>
-        ))}
+          )
+        })}
       </nav>
 
       <div className="sb-footer" ref={footerRef}>

@@ -322,7 +322,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                           {draft.antiparasiteOk ? 'Actif' : 'Non renseigné'}
                         </label>
                         {draft.antiparasiteOk && (
-                          <input className="form-input" type="text" value={draft.antiparasiteInfo} onChange={e => setField('antiparasiteInfo', e.target.value)} style={{ marginTop: 6 }} />
+                          <input className="form-input" type="date" value={draft.antiparasiteInfo} onChange={e => setField('antiparasiteInfo', e.target.value)} style={{ marginTop: 6 }} />
                         )}
                       </>
                     ) : (
