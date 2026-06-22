@@ -13,6 +13,9 @@ import SessionDetailPage from './pages/SessionDetailPage.js'
 import OrganizationsPage from './pages/OrganizationsPage.js'
 import AddOrganizationPage from './pages/AddOrganizationPage.js'
 import OrganizationDetailPage from './pages/OrganizationDetailPage.js'
+import StaffPage from './pages/StaffPage.js'
+import AddStaffPage from './pages/AddStaffPage.js'
+import StaffDetailPage from './pages/StaffDetailPage.js'
 import PlaceholderPage from './pages/PlaceholderPage.js'
 import UsersPage from './pages/UsersPage.js'
 import LoginPage from './pages/LoginPage.js'
@@ -27,8 +30,11 @@ function App() {
   const [addingSession, setAddingSession] = useState(false)
   const [selectedSession, setSelectedSession] = useState<{ id: string; label: string } | null>(null)
   const [addingOrganization,    setAddingOrganization]    = useState(false)
-  const [sessionPreselectedAnimalId, setSessionPreselectedAnimalId] = useState<string | null>(null)
   const [selectedOrganization, setSelectedOrganization] = useState<{ id: string; name: string } | null>(null)
+  const [addingStaff,          setAddingStaff]           = useState(false)
+  const [selectedStaff,        setSelectedStaff]         = useState<{ id: string; name: string } | null>(null)
+  const [animalsInitialFilter, setAnimalsInitialFilter]  = useState<'alerte' | undefined>(undefined)
+  const [sessionPreselectedAnimalId, setSessionPreselectedAnimalId] = useState<string | null>(null)
 
   useEffect(() => {
     return onAuthStateChanged(auth, u => setUser(u))
@@ -45,6 +51,9 @@ function App() {
     setSelectedSession(null)
     setAddingOrganization(false)
     setSelectedOrganization(null)
+    setAddingStaff(false)
+    setSelectedStaff(null)
+    setAnimalsInitialFilter(undefined)
     setSessionPreselectedAnimalId(null)
   }
 
@@ -55,6 +64,8 @@ function App() {
       ? addingSession ? 'Nouvelle séance' : selectedSession ? selectedSession.label : undefined
     : page === 'structures'
       ? addingOrganization ? 'Nouvelle structure' : selectedOrganization ? selectedOrganization.name : undefined
+    : page === 'staff'
+      ? addingStaff ? 'Nouvel intervenant' : selectedStaff ? selectedStaff.name : undefined
     : undefined
 
   return (
@@ -71,12 +82,14 @@ function App() {
           onSelectAnimal={(id, name) => { setPage('animals'); setSelectedAnimal({ id, name }) }}
           onAddSession={() => { setPage('sessions'); setAddingSession(true) }}
           onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
+          onViewAlerts={() => { setAnimalsInitialFilter('alerte'); setPage('animals') }}
         />
       )}
       {page === 'animals' && !selectedAnimal && !addingAnimal && (
         <AnimalsPage
           onSelectAnimal={(id, name) => setSelectedAnimal({ id, name })}
           onAddAnimal={() => setAddingAnimal(true)}
+          initialFilter={animalsInitialFilter}
         />
       )}
       {page === 'animals' && addingAnimal && (
@@ -133,8 +146,26 @@ function App() {
           onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
         />
       )}
-      {page === 'users'      && <UsersPage />}
-      {page === 'staff'      && <PlaceholderPage icon="🥼" title="Intervenants"  description="18 intervenants actifs · Tous ACACED" cta="Ajouter un intervenant" />}
+      {page === 'users' && <UsersPage />}
+      {page === 'staff' && !addingStaff && !selectedStaff && (
+        <StaffPage
+          onAddStaff={() => setAddingStaff(true)}
+          onSelectStaff={(id, name) => setSelectedStaff({ id, name })}
+        />
+      )}
+      {page === 'staff' && addingStaff && (
+        <AddStaffPage
+          onBack={() => setAddingStaff(false)}
+          onSaved={(id, name) => { setAddingStaff(false); setSelectedStaff({ id, name }) }}
+        />
+      )}
+      {page === 'staff' && selectedStaff && !addingStaff && (
+        <StaffDetailPage
+          id={selectedStaff.id}
+          onBack={() => setSelectedStaff(null)}
+          onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
+        />
+      )}
       {page === 'alerts'     && <PlaceholderPage icon="⚠️" title="Alertes"       description="5 alertes sanitaires actives" />}
       {page === 'settings'   && <PlaceholderPage icon="⚙️" title="Paramètres"    description="Configuration du back office" />}
     </AppLayout>
