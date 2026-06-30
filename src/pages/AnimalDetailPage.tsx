@@ -23,9 +23,10 @@ interface Props {
   onSelectSession: (id: string, label: string) => void
   onAddSession: () => void
   onSelectStaff: (id: string, name: string) => void
+  onAddAnimal: () => void
 }
 
-export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession, onSelectStaff }: Props) {
+export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession, onSelectStaff, onAddAnimal }: Props) {
   const role = useRole()
   const canWrite = role === 'admin' || role === 'editor'
   const [activeTab, setActiveTab] = useState<Tab>('infos')
@@ -212,7 +213,10 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
             </button>
           </>
         ) : (
-          canWrite ? <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button> : null
+          <>
+            {canWrite && <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>}
+            {canWrite && <button className="btn btn-secondary" onClick={onAddAnimal}>+ Ajouter un animal</button>}
+          </>
         )}
       </PageHeader>
 
