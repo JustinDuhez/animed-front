@@ -21,12 +21,12 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
 
-  const [animalId,  setAnimalId]  = useState(preselectedAnimalId ?? '')
-  const [date,      setDate]      = useState('')
-  const [structure, setStructure] = useState('')
-  const [handler,   setHandler]   = useState('')
-  const [status,    setStatus]    = useState<Session['status']>('planned')
-  const [notes,     setNotes]     = useState('')
+  const [animalIds,  setAnimalIds]  = useState<Set<string>>(preselectedAnimalId ? new Set([preselectedAnimalId]) : new Set())
+  const [date,       setDate]       = useState('')
+  const [structure,  setStructure]  = useState('')
+  const [handler,    setHandler]    = useState('')
+  const [status,     setStatus]     = useState<Session['status']>('planned')
+  const [notes,      setNotes]      = useState('')
 
   useEffect(() => {
     const unsubAnimals = onSnapshot(collection(db, 'animals'), snap => {
@@ -56,36 +56,31 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
     return () => { unsubAnimals(); unsubOrgs(); unsubStaff() }
   }, [])
 
-  useEffect(() => {
-    if (!preselectedAnimalId || animals.length === 0) return
-    const animal = animals.find(a => a.id === preselectedAnimalId)
-    if (animal && animal.handler !== '—') setHandler(animal.handler)
-  }, [animals])
-
-  function handleAnimalChange(id: string) {
-    setAnimalId(id)
-    setStructure('')
-    const animal = animals.find(a => a.id === id)
-    setHandler(animal && animal.handler !== '—' ? animal.handler : '')
+  function toggleAnimal(id: string) {
+    setAnimalIds(prev => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
+    })
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!animalId)        { setError('Veuillez sélectionner un animal.'); return }
-    if (!date)            { setError('La date est requise.'); return }
-    if (!structure.trim()) { setError('La structure est requise.'); return }
+    if (animalIds.size === 0) { setError('Veuillez sélectionner au moins un animal.'); return }
+    if (!date)                { setError('La date est requise.'); return }
+    if (!structure.trim())    { setError('La structure est requise.'); return }
 
     setSubmitting(true)
     setError('')
     try {
-      const id = `ses-${animalId.toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}`
+      const id = `ses-${Date.now()}`
       const session: Session = {
         id,
-        animalId,
+        animalIds: [...animalIds],
         date,
         structure: structure.trim(),
-        handler: handler.trim(),
-        notes: notes.trim(),
+        handler:   handler.trim(),
+        notes:     notes.trim(),
         status,
       }
       await setDoc(doc(db, 'sessions', id), session)
@@ -113,26 +108,47 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
       <form id="add-session-form" onSubmit={handleSubmit}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', maxWidth: 680 }}>
 
-          {/* Animal + date */}
+          {/* Animals + date */}
+          <div className="card">
+            <div className="card-header">
+              <div className="card-title">Animaux <span className="form-required">*</span></div>
+              {animalIds.size > 0 && (
+                <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green-600)' }}>
+                  {animalIds.size} sélectionné{animalIds.size > 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            <div className="card-body">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', maxHeight: 220, overflowY: 'auto' }}>
+                {animals.map(a => (
+                  <label key={a.id} style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', padding: 'var(--sp-2) var(--sp-3)', borderRadius: 8, cursor: 'pointer', background: animalIds.has(a.id) ? 'var(--green-50, #f0fdf4)' : 'transparent', border: `1px solid ${animalIds.has(a.id) ? 'var(--green-200, #bbf7d0)' : 'var(--slate-100)'}` }}>
+                    <input
+                      type="checkbox"
+                      className="table-check"
+                      checked={animalIds.has(a.id)}
+                      onChange={() => toggleAnimal(a.id)}
+                    />
+                    <span style={{ fontSize: 20, lineHeight: 1 }}>{a.emoji}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--slate-900)' }}>{a.name}</div>
+                      <div style={{ fontSize: 11, color: 'var(--slate-400)' }}>{a.species}</div>
+                    </div>
+                  </label>
+                ))}
+                {animals.length === 0 && (
+                  <div style={{ fontSize: 13, color: 'var(--slate-400)', textAlign: 'center', padding: 'var(--sp-3)' }}>
+                    Aucun animal disponible
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Séance details */}
           <div className="card">
             <div className="card-header"><div className="card-title">Séance</div></div>
             <div className="card-body">
               <div className="form-grid">
-
-                <div className="form-field">
-                  <label className="form-label">Animal <span className="form-required">*</span></label>
-                  <select
-                    className="form-select"
-                    value={animalId}
-                    onChange={e => handleAnimalChange(e.target.value)}
-                    required
-                  >
-                    <option value="">— Sélectionner un animal —</option>
-                    {animals.map(a => (
-                      <option key={a.id} value={a.id}>{a.emoji} {a.name} · {a.species}</option>
-                    ))}
-                  </select>
-                </div>
 
                 <div className="form-field">
                   <label className="form-label">Statut</label>

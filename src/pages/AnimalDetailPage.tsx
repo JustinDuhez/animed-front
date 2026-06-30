@@ -3,7 +3,8 @@ import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/f
 import { db, storage } from '../firebase.js'
 import type { Animal, AnimalDocument, Status, Vaccine } from '../data/animal.js'
 import type { Session } from '../data/session.js'
-import { ANIMAL_STATUS_MAP } from '../utils/badges.js'
+import type { StaffMember } from '../data/staff.js'
+import { ANIMAL_STATUS_MAP, requiresVaccineAlert } from '../utils/badges.js'
 import { useRole } from '../context/RoleContext.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
@@ -14,16 +15,17 @@ import { docIcon, formatFileSize, uploadDocument, deleteDocument } from '../util
 
 type Tab = 'infos' | 'seances' | 'documents'
 
-const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️']
+const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️', '🐹']
 
 interface Props {
   id: string
   onBack: () => void
   onSelectSession: (id: string, label: string) => void
   onAddSession: () => void
+  onSelectStaff: (id: string, name: string) => void
 }
 
-export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession }: Props) {
+export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession, onSelectStaff }: Props) {
   const role = useRole()
   const canWrite = role === 'admin' || role === 'editor'
   const [activeTab, setActiveTab] = useState<Tab>('infos')
@@ -39,6 +41,8 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState('')
+  const [staffList,     setStaffList]     = useState<StaffMember[]>([])
+  const [knownSpecies,  setKnownSpecies]  = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -48,7 +52,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   }, [id])
 
   useEffect(() => {
-    const q = query(collection(db, 'sessions'), where('animalId', '==', id))
+    const q = query(collection(db, 'sessions'), where('animalIds', 'array-contains', id))
     return onSnapshot(q, snap => {
       const records = snap.docs
         .map(d => d.data() as Session)
@@ -57,6 +61,19 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
       setSessionsLoading(false)
     })
   }, [id])
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'staff'), snap => {
+      setStaffList(snap.docs.map(d => d.data() as StaffMember))
+    })
+  }, [])
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'animals'), snap => {
+      const unique = [...new Set(snap.docs.map(d => (d.data().species as string)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'))
+      setKnownSpecies(unique)
+    })
+  }, [])
 
   useEffect(() => {
     return onSnapshot(collection(db, 'animals', id, 'documents'), snap => {
@@ -173,7 +190,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
 
   const d = editing && draft ? draft : animal
   const { cls: statusCls, label: statusLabel } = ANIMAL_STATUS_MAP[d.status]
-  const hasAlert = d.status === 'alerte' || !d.vaccineOk
+  const hasAlert = d.status === 'alerte' || (!d.vaccineOk && requiresVaccineAlert(d.emoji))
 
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: 'infos',     label: 'Informations' },
@@ -207,7 +224,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
         <div style={{ flex: 1 }}>
           <div className="hero-name">{animal.name}</div>
           <div className="hero-meta">
-            {d.species} · {d.gender} · né(e) le {d.birthDate}
+            {d.species} · {d.gender} · {d.gender === 'Femelle' ? 'née' : 'né'} le {formatShortDate(d.birthDate)}
           </div>
           <div className="hero-badges">
             <span className={`hero-badge hero-badge-status ${d.status}`}>{statusLabel}</span>
@@ -264,7 +281,12 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                   <div className="info-tile">
                     <div className="info-label">Espèce</div>
                     {editing && draft
-                      ? <input className="form-input" type="text" value={draft.species} onChange={e => setField('species', e.target.value)} style={{ marginTop: 4 }} />
+                      ? <>
+                          <input className="form-input" type="text" list="species-suggestions-detail" value={draft.species} onChange={e => setField('species', e.target.value)} style={{ marginTop: 4 }} />
+                          <datalist id="species-suggestions-detail">
+                            {knownSpecies.map(s => <option key={s} value={s} />)}
+                          </datalist>
+                        </>
                       : <div className="info-value">{d.species}</div>}
                   </div>
 
@@ -299,10 +321,10 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                       : <div className="info-value">{formatShortDate(d.lastVetCheck)}</div>}
                   </div>
 
-                  <div className={`info-tile${!d.vaccineOk ? ' info-tile-alert' : ''}`}>
+                  <div className={`info-tile${!d.vaccineOk && requiresVaccineAlert(d.emoji) ? ' info-tile-alert' : ''}`}>
                     <div className="info-label">Vaccinations</div>
-                    <div className="info-value" style={{ color: d.vaccineOk ? 'var(--green-600)' : 'var(--red-500)', fontSize: 13 }}>
-                      {d.vaccineOk ? '✓ À jour' : '✕ Attention requise'}
+                    <div className="info-value" style={{ color: d.vaccineOk ? 'var(--green-600)' : requiresVaccineAlert(d.emoji) ? 'var(--red-500)' : 'var(--slate-400)', fontSize: 13 }}>
+                      {d.vaccineOk ? '✓ À jour' : requiresVaccineAlert(d.emoji) ? '✕ Attention requise' : '— Non applicable'}
                     </div>
                     <div className="info-sub">
                       {d.vaccines.length === 0
@@ -351,7 +373,14 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                     {editing && draft
                       ? <input className="form-input" type="text" value={draft.handler === '—' ? '' : draft.handler} onChange={e => setField('handler', e.target.value || '—')} style={{ marginTop: 4 }} />
                       : <div className="info-value" style={{ fontSize: 13 }}>
-                          {d.handler === '—' ? <span style={{ color: 'var(--slate-400)' }}>—</span> : d.handler}
+                          {d.handler === '—'
+                            ? <span style={{ color: 'var(--slate-400)' }}>—</span>
+                            : (() => {
+                                const member = staffList.find(m => `${m.firstName} ${m.lastName}` === d.handler)
+                                return member
+                                  ? <span style={{ color: 'var(--green-600)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => onSelectStaff(member.id, `${member.firstName} ${member.lastName}`)}>{d.handler}</span>
+                                  : <span>{d.handler}</span>
+                              })()}
                         </div>}
                   </div>
 
@@ -548,7 +577,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
               {editing && draft && (
                 <button type="button" className="btn btn-secondary btn-sm" onClick={addVaccine}>+ Vaccin</button>
               )}
-              {!editing && !d.vaccineOk && (
+              {!editing && !d.vaccineOk && requiresVaccineAlert(d.emoji) && (
                 <span className="badge badge-alerte" style={{ fontSize: 10 }}><span className="badge-dot" />Action requise</span>
               )}
             </div>
@@ -598,7 +627,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                       {d.antiparasiteOk ? '✓ Actif' : '⚠ Non renseigné'}
                     </span>
                   </div>
-                  {!d.vaccineOk && (
+                  {!d.vaccineOk && requiresVaccineAlert(d.emoji) && (
                     <button className="btn btn-warning btn-sm" style={{ width: '100%', justifyContent: 'center', marginTop: 'var(--sp-1)' }}>
                       Mettre à jour
                     </button>

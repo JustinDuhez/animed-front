@@ -104,6 +104,7 @@ function App() {
           onBack={() => setSelectedAnimal(null)}
           onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
           onAddSession={() => { setSessionPreselectedAnimalId(selectedAnimal.id); setPage('sessions'); setAddingSession(true) }}
+          onSelectStaff={(id, name) => { setPage('staff'); setSelectedStaff({ id, name }) }}
         />
       )}
       {page === 'sessions' && !addingSession && !selectedSession && (

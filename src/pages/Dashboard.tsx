@@ -9,6 +9,7 @@ import SessionCard from '../components/ui/SessionCard.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import { formatSessionLabel, formatShortDate } from '../utils/format.js'
+import { requiresVaccineAlert } from '../utils/badges.js'
 
 interface Props {
   onSelectAnimal:  (id: string, name: string) => void
@@ -44,9 +45,9 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
 
   // ── KPI values ──────────────────────────────────────────────────
   const activeAnimals  = animals.filter(a => a.status === 'actif').length
-  const alertAnimals   = animals.filter(a => a.status === 'alerte' || !a.vaccineOk)
+  const alertAnimals   = animals.filter(a => a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)))
   const alertCount     = alertAnimals.length
-  const vaccineAlerts  = alertAnimals.filter(a => !a.vaccineOk).length
+  const vaccineAlerts  = alertAnimals.filter(a => !a.vaccineOk && requiresVaccineAlert(a.emoji)).length
   const statusAlerts   = alertAnimals.filter(a => a.status === 'alerte').length
   const activeOrgs     = orgs.filter(o => o.status === 'active').length
   const uniqueHandlers = new Set(animals.filter(a => a.handler !== '—').map(a => a.handler)).size
@@ -78,8 +79,8 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
   // ── Lists ────────────────────────────────────────────────────────
   const recentAnimals = [...animals]
     .sort((a, b) => {
-      const aAlert = (a.status === 'alerte' || !a.vaccineOk) ? 1 : 0
-      const bAlert = (b.status === 'alerte' || !b.vaccineOk) ? 1 : 0
+      const aAlert = (a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji))) ? 1 : 0
+      const bAlert = (b.status === 'alerte' || (!b.vaccineOk && requiresVaccineAlert(b.emoji))) ? 1 : 0
       if (bAlert !== aAlert) return bAlert - aAlert
       if (a.lastSession === '—' && b.lastSession !== '—') return 1
       if (b.lastSession === '—' && a.lastSession !== '—') return -1
@@ -168,8 +169,8 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
                     </span>
                   </td>
                   <td>
-                    <span className={`badge ${a.vaccineOk ? 'badge-actif' : 'badge-alerte'}`}>
-                      <span className="badge-dot" />{a.vaccineOk ? 'À jour' : 'Attention'}
+                    <span className={`badge ${a.vaccineOk ? 'badge-actif' : requiresVaccineAlert(a.emoji) ? 'badge-alerte' : 'badge-repos'}`}>
+                      <span className="badge-dot" />{a.vaccineOk ? 'À jour' : requiresVaccineAlert(a.emoji) ? 'Attention' : 'N/A'}
                     </span>
                   </td>
                   <td>{a.sessions[currentMonth] ?? 0}</td>
@@ -206,7 +207,7 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
               <SessionCard
                 key={s.id}
                 session={s}
-                animal={animalMap[s.animalId]}
+                animals={s.animalIds.map(id => animalMap[id]).filter((a): a is Animal => !!a)}
                 onClick={() => onSelectSession(s.id, formatSessionLabel(s.date))}
               />
             ))}
