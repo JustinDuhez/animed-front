@@ -1,5 +1,5 @@
-import { useState, FormEvent } from 'react'
-import { doc, setDoc } from 'firebase/firestore'
+import { useState, useEffect, FormEvent } from 'react'
+import { doc, setDoc, collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal, Status, Vaccine } from '../data/animal.js'
 import PageHeader from '../components/ui/PageHeader.js'
@@ -16,11 +16,19 @@ function generateId(name: string): string {
   return `${prefix}-${String(num).padStart(5, '0')}`
 }
 
-const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️']
+const EMOJI_OPTIONS = ['🐕', '🐈', '🐇', '🐴', '🦜', '🐑', '🐄', '🐓', '🐠', '🦎', '🐢', '🐿️', '🐹']
 
 export default function AddAnimalPage({ onBack, onSaved }: Props) {
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
+  const [submitting,    setSubmitting]    = useState(false)
+  const [error,         setError]         = useState('')
+  const [knownSpecies,  setKnownSpecies]  = useState<string[]>([])
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'animals'), snap => {
+      const unique = [...new Set(snap.docs.map(d => (d.data().species as string)).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr'))
+      setKnownSpecies(unique)
+    })
+  }, [])
 
   const [emoji, setEmoji] = useState('🐕')
   const [name, setName] = useState('')
@@ -154,7 +162,10 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
                   </div>
                   <div className="form-field">
                     <label className="form-label">Espèce <span className="form-required">*</span></label>
-                    <input className="form-input" type="text" placeholder="ex: Labrador Retriever" value={species} onChange={e => setSpecies(e.target.value)} required />
+                    <input className="form-input" type="text" list="species-suggestions" placeholder="ex: Labrador Retriever" value={species} onChange={e => setSpecies(e.target.value)} required />
+                    <datalist id="species-suggestions">
+                      {knownSpecies.map(s => <option key={s} value={s} />)}
+                    </datalist>
                   </div>
                   <div className="form-field">
                     <label className="form-label">Sexe</label>

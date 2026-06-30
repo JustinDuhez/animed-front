@@ -26,3 +26,9 @@ export const ROLE_BADGE: Record<Role, { bg: string; color: string }> = {
   editor: { bg: '#e0e7ff', color: '#4338ca' },
   viewer: { bg: '#f1f5f9', color: '#475569' },
 }
+
+const VACCINE_ALERT_EMOJIS = new Set(['🐕', '🐈', '🐴'])
+
+export function requiresVaccineAlert(emoji: string): boolean {
+  return VACCINE_ALERT_EMOJIS.has(emoji)
+}

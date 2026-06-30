@@ -5,11 +5,11 @@ import { formatDateTime } from '../../utils/format.js'
 
 interface Props {
   session: Session
-  animal?: Animal
+  animals?: Animal[]
   onClick?: () => void
 }
 
-export default function SessionCard({ session, animal, onClick }: Props) {
+export default function SessionCard({ session, animals, onClick }: Props) {
   const { cls, label } = SESSION_STATUS_MAP[session.status]
   return (
     <div
@@ -24,7 +24,9 @@ export default function SessionCard({ session, animal, onClick }: Props) {
         </div>
         <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
       </div>
-      {animal && <div className="sc-animal">{animal.emoji} {animal.name}</div>}
+      {animals && animals.length > 0 && (
+        <div className="sc-animal">{animals.map(a => `${a.emoji} ${a.name}`).join(', ')}</div>
+      )}
       <div className="sc-meta">
         <span>🥼 {session.handler || '—'}</span>
       </div>

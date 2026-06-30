@@ -64,7 +64,7 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
     if (search.trim()) {
       const q = search.toLowerCase()
       data = data.filter(s =>
-        (animals[s.animalId]?.name ?? '').toLowerCase().includes(q) ||
+        s.animalIds.some(id => (animals[id]?.name ?? '').toLowerCase().includes(q)) ||
         s.structure.toLowerCase().includes(q) ||
         s.handler.toLowerCase().includes(q) ||
         s.notes.toLowerCase().includes(q)
@@ -136,7 +136,7 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
                   <SessionGridCard
                     key={s.id}
                     session={s}
-                    animal={animals[s.animalId]}
+                    animals={s.animalIds.map(id => animals[id]).filter((a): a is Animal => !!a)}
                     onSelect={() => onSelectSession(s.id, formatSessionLabel(s.date))}
                     onSelectAnimal={onSelectAnimal}
                   />
