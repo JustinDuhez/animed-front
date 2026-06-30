@@ -4,7 +4,7 @@ import { db } from '../../firebase.js'
 import type { User } from 'firebase/auth'
 import type { Animal } from '../../data/animal.js'
 import { useRole } from '../../context/RoleContext.js'
-import { ROLE_LABELS } from '../../utils/badges.js'
+import { ROLE_LABELS, requiresVaccineAlert } from '../../utils/badges.js'
 
 interface NavItem {
   icon: string
@@ -72,7 +72,7 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
     return onSnapshot(collection(db, 'animals'), snap => {
       const count = snap.docs.filter(d => {
         const a = d.data() as Animal
-        return a.status === 'alerte' || !a.vaccineOk
+        return a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji))
       }).length
       setAlertCount(count)
     })

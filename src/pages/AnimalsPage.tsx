@@ -1,11 +1,8 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
 import { collection, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import { seedAnimalsIfEmpty } from '../utils/seedAnimals.js'
-import { seedSessionsIfEmpty } from '../utils/seedSessions.js'
-import { seedOrganizationsIfEmpty } from '../utils/seedOrganizations.js'
 import type { Animal } from '../data/animal.js'
-import { ANIMAL_STATUS_MAP } from '../utils/badges.js'
+import { ANIMAL_STATUS_MAP, requiresVaccineAlert } from '../utils/badges.js'
 import { useRole } from '../context/RoleContext.js'
 import { formatShortDate } from '../utils/format.js'
 import PageHeader from '../components/ui/PageHeader.js'
@@ -61,10 +58,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal, initialFilter
   const selectAllRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
-    seedAnimalsIfEmpty().catch(console.error)
-    seedSessionsIfEmpty().catch(console.error)
-    seedOrganizationsIfEmpty().catch(console.error)
-    const unsub = onSnapshot(collection(db, 'animals'), snap => {
+const unsub = onSnapshot(collection(db, 'animals'), snap => {
       setAnimals(snap.docs.map(d => d.data() as Animal))
       setLoading(false)
     })
@@ -75,7 +69,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal, initialFilter
     tous:   animals.length,
     actif:  animals.filter((a: Animal) => a.status === 'actif').length,
     repos:  animals.filter((a: Animal) => a.status === 'repos').length,
-    alerte: animals.filter((a: Animal) => a.status === 'alerte' || !a.vaccineOk).length,
+    alerte: animals.filter((a: Animal) => a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji))).length,
   }), [animals])
 
   const processed = useMemo(() => {
@@ -83,7 +77,7 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal, initialFilter
 
     if (filter === 'actif')  data = data.filter(a => a.status === 'actif')
     if (filter === 'repos')  data = data.filter(a => a.status === 'repos')
-    if (filter === 'alerte') data = data.filter(a => a.status === 'alerte' || !a.vaccineOk)
+    if (filter === 'alerte') data = data.filter(a => a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)))
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -279,9 +273,9 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal, initialFilter
                   </span>
                 </td>
                 <td>
-                  <span className={`badge ${a.vaccineOk ? 'badge-actif' : 'badge-alerte'}`}>
+                  <span className={`badge ${a.vaccineOk ? 'badge-actif' : requiresVaccineAlert(a.emoji) ? 'badge-alerte' : 'badge-repos'}`}>
                     <span className="badge-dot" />
-                    {a.vaccineOk ? 'À jour' : 'Expiré'}
+                    {a.vaccineOk ? 'À jour' : requiresVaccineAlert(a.emoji) ? 'Expiré' : 'N/A'}
                   </span>
                 </td>
                 <td>{a.sessions[new Date().toISOString().slice(0, 7)] ?? 0}</td>

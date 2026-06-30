@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
-import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, deleteDoc, collection } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import type { Session } from '../data/session.js'
+import type { Organization } from '../data/organization.js'
 import { SESSION_STATUS_MAP } from '../utils/badges.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
@@ -19,12 +20,14 @@ interface Props {
 export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props) {
   const role = useRole()
   const canWrite = role === 'admin' || role === 'editor'
-  const [session,   setSession]   = useState<Session | null | undefined>(undefined)
-  const [animal,    setAnimal]    = useState<Animal  | null | undefined>(undefined)
-  const [editing,   setEditing]   = useState(false)
-  const [draft,     setDraft]     = useState<Session | null>(null)
-  const [saving,    setSaving]    = useState(false)
-  const [saveError, setSaveError] = useState('')
+  const [session,        setSession]        = useState<Session | null | undefined>(undefined)
+  const [sessionAnimals, setSessionAnimals] = useState<Animal[]>([])
+  const [allAnimals,     setAllAnimals]     = useState<Record<string, Animal>>({})
+  const [orgs,           setOrgs]           = useState<Organization[]>([])
+  const [editing,           setEditing]           = useState(false)
+  const [draft,             setDraft]             = useState<Session | null>(null)
+  const [saving,            setSaving]            = useState(false)
+  const [saveError,         setSaveError]         = useState('')
 
   useEffect(() => {
     return onSnapshot(doc(db, 'sessions', id), snap => {
@@ -33,11 +36,28 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
   }, [id])
 
   useEffect(() => {
-    if (!session) return
-    return onSnapshot(doc(db, 'animals', session.animalId), snap => {
-      setAnimal(snap.exists() ? (snap.data() as Animal) : null)
+    return onSnapshot(collection(db, 'animals'), snap => {
+      const map: Record<string, Animal> = {}
+      snap.docs.forEach(d => { const a = d.data() as Animal; map[a.id] = a })
+      setAllAnimals(map)
     })
-  }, [session?.animalId])
+  }, [])
+
+  useEffect(() => {
+    if (!session) return
+    setSessionAnimals(session.animalIds.map(id => allAnimals[id]).filter(Boolean) as Animal[])
+  }, [session, allAnimals])
+
+  useEffect(() => {
+    return onSnapshot(collection(db, 'organizations'), snap => {
+      setOrgs(
+        snap.docs
+          .map(d => d.data() as Organization)
+          .filter(o => o.status === 'active')
+          .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
+      )
+    })
+  }, [])
 
   function startEditing() {
     if (!session) return
@@ -50,6 +70,12 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
     setEditing(false)
     setDraft(null)
     setSaveError('')
+  }
+
+  async function deleteSession() {
+    if (!window.confirm('Supprimer cette séance définitivement ?')) return
+    await deleteDoc(doc(db, 'sessions', id))
+    onBack()
   }
 
   async function saveEditing() {
@@ -94,12 +120,13 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
   return (
     <>
       <PageHeader
-        title={`${animal?.emoji ?? '📋'} ${animal?.name ?? session.animalId}`}
+        title={`🏥 ${s.structure || 'Séance sans structure'}`}
         subtitle={`${formatFullDate(s.date)} · ${formatTime(s.date)}`}
         subtitleStyle={{ textTransform: 'capitalize' }}
       >
         {editing ? (
           <>
+            <button className="btn btn-danger" onClick={deleteSession} disabled={saving}>🗑 Supprimer</button>
             <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
             <button className="btn btn-primary"   onClick={saveEditing}   disabled={saving}>
               {saving ? 'Enregistrement…' : '✓ Enregistrer'}
@@ -109,6 +136,12 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
           <>
             <button className="btn btn-secondary" onClick={onBack}>← Retour</button>
             {canWrite && <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>}
+            {canWrite && session.status !== 'completed' && (
+              <button className="btn btn-primary" style={{ background: 'var(--green-600)', borderColor: 'var(--green-600)' }}
+                onClick={async () => { if (window.confirm('Compléter la réalisation de cette séance ?')) await updateDoc(doc(db, 'sessions', id), { status: 'completed' }) }}>
+                Compléter la séance
+              </button>
+            )}
           </>
         )}
       </PageHeader>
@@ -159,9 +192,72 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Structure</div>
                   {editing && draft ? (
-                    <input className="form-input" type="text" value={draft.structure} onChange={e => setField('structure', e.target.value)} style={{ marginTop: 4 }} />
+                    <select className="form-select" value={draft.structure} onChange={e => setField('structure', e.target.value)} style={{ marginTop: 4 }}>
+                      {draft.structure && !orgs.some(o => o.name === draft.structure) && (
+                        <option value={draft.structure}>{draft.structure}</option>
+                      )}
+                      {orgs.map(o => <option key={o.id} value={o.name}>{o.name}</option>)}
+                    </select>
                   ) : (
                     <div className="info-value">{s.structure || '—'}</div>
+                  )}
+                </div>
+
+                <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
+                  <div className="info-label">
+                    {editing && draft
+                      ? (draft.animalIds.length > 1 ? 'Animaux' : 'Animal')
+                      : (sessionAnimals.length > 1 ? 'Animaux' : 'Animal')}
+                  </div>
+                  {editing && draft ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-1)', marginTop: 4, maxHeight: 220, overflowY: 'auto' }}>
+                      {Object.values(allAnimals).sort((a, b) => a.name.localeCompare(b.name, 'fr')).map(a => {
+                        const checked = draft.animalIds.includes(a.id)
+                        return (
+                          <label
+                            key={a.id}
+                            style={{
+                              display: 'flex', alignItems: 'center', gap: 'var(--sp-2)',
+                              padding: 'var(--sp-2) var(--sp-3)', borderRadius: 8, cursor: 'pointer',
+                              background: checked ? 'var(--green-50)' : 'var(--slate-50)',
+                              border: `1px solid ${checked ? 'var(--green-200)' : 'var(--slate-200)'}`,
+                            }}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                const ids = checked
+                                  ? draft.animalIds.filter(id => id !== a.id)
+                                  : [...draft.animalIds, a.id]
+                                setField('animalIds', ids)
+                              }}
+                            />
+                            <span style={{ fontSize: 18 }}>{a.emoji}</span>
+                            <span style={{ fontSize: 13, fontWeight: 600 }}>{a.name}</span>
+                            <span style={{ fontSize: 11, color: 'var(--slate-400)' }}>{a.species}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  ) : sessionAnimals.length === 0 ? (
+                    <div className="info-value" style={{ color: 'var(--slate-400)', marginTop: 4 }}>Aucun animal</div>
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', marginTop: 4 }}>
+                      {sessionAnimals.map(a => (
+                        <div
+                          key={a.id}
+                          style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', cursor: 'pointer' }}
+                          onClick={() => onSelectAnimal(a.id, a.name)}
+                        >
+                          <span style={{ fontSize: 22, lineHeight: 1 }}>{a.emoji}</span>
+                          <div>
+                            <div className="info-value" style={{ color: 'var(--green-600)' }}>{a.name}</div>
+                            <div style={{ fontSize: 11, color: 'var(--slate-400)', marginTop: 1 }}>{a.species}</div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -195,35 +291,6 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
 
         {/* ── Right column ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
-
-          <div className="card">
-            <div className="card-header"><div className="card-title">Animal</div></div>
-            <div className="card-body">
-              {animal === undefined ? (
-                <div style={{ fontSize: 13, color: 'var(--slate-400)' }}>Chargement…</div>
-              ) : !animal ? (
-                <div style={{ fontSize: 13, color: 'var(--slate-400)' }}>Animal introuvable</div>
-              ) : (
-                <>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-3)', marginBottom: 'var(--sp-4)' }}>
-                    <div style={{ fontSize: 36, lineHeight: 1 }}>{animal.emoji}</div>
-                    <div>
-                      <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--slate-900)' }}>{animal.name}</div>
-                      <div style={{ fontSize: 12, color: 'var(--slate-500)', marginTop: 2 }}>{animal.species}</div>
-                      <div style={{ fontSize: 11, color: 'var(--slate-400)', fontFamily: 'monospace', marginTop: 2 }}>{animal.id}</div>
-                    </div>
-                  </div>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    style={{ width: '100%', justifyContent: 'center' }}
-                    onClick={() => onSelectAnimal(animal.id, animal.name)}
-                  >
-                    Voir la fiche animal
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
 
           <div className="card">
             <div className="card-header"><div className="card-title">Référence</div></div>
