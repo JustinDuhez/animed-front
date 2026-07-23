@@ -2,6 +2,7 @@ import { useState, useEffect, FormEvent } from 'react'
 import { doc, setDoc, collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal, Status, Vaccine } from '../data/animal.js'
+import { generateQrDataUrl } from '../utils/qrCode.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 
@@ -85,6 +86,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
       const id = generateId(name)
       const validVaccines = vaccines.filter(v => v.name.trim())
       const vaccineOk = validVaccines.length > 0 && validVaccines.every(v => v.status === 'ok')
+      const qrCode = await generateQrDataUrl(id)
 
       const animal: Animal = {
         id,
@@ -109,6 +111,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
           ? { structure: nextSessionStructure.trim(), date: nextSessionDate.trim() }
           : null,
         vaccines: validVaccines,
+        qrCode,
       }
 
       await setDoc(doc(db, 'animals', id), animal)

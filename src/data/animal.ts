@@ -37,6 +37,7 @@ export interface Animal {
   establishments: string[]
   nextSession: { structure: string; date: string } | null
   vaccines: Vaccine[]
+  qrCode?: string
 }
 
 export const ANIMALS: Animal[] = [

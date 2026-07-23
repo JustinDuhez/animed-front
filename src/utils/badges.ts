@@ -10,9 +10,10 @@ export const ANIMAL_STATUS_MAP: Record<Animal['status'], { cls: string; label: s
 }
 
 export const SESSION_STATUS_MAP: Record<Session['status'], { cls: string; label: string }> = {
-  completed: { cls: 'badge-actif',  label: 'Effectuée' },
-  planned:   { cls: 'badge-repos',  label: 'Planifiée' },
-  cancelled: { cls: 'badge-alerte', label: 'Annulée'   },
+  completed:  { cls: 'badge-actif',    label: 'Effectuée'   },
+  planned:    { cls: 'badge-repos',    label: 'Planifiée'   },
+  cancelled:  { cls: 'badge-alerte',   label: 'Annulée'     },
+  inProgress: { cls: 'badge-terra',    label: 'En cours'    },
 }
 
 export const ROLE_LABELS: Record<Role, string> = {

@@ -5,6 +5,9 @@ export interface Session {
   structure: string
   handler: string
   notes: string
-  status: 'completed' | 'planned' | 'cancelled'
+  status: 'completed' | 'planned' | 'cancelled' | 'inProgress'
+  startedAt?: { seconds: number; nanoseconds: number }
+  endedAt?:   { seconds: number; nanoseconds: number }
+  survey?:    Record<string, unknown>
 }
 
