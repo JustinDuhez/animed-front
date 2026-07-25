@@ -12,6 +12,7 @@ import EmptyState from '../components/ui/EmptyState.js'
 import SessionGridCard from '../components/ui/SessionGridCard.js'
 import { formatMonthHeading, formatSessionLabel, formatShortDate } from '../utils/format.js'
 import { docIcon, formatFileSize, uploadDocument, deleteDocument } from '../utils/fileUpload.js'
+import { generateQrDataUrl } from '../utils/qrCode.js'
 
 type Tab = 'infos' | 'seances' | 'documents'
 
@@ -44,6 +45,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   const [uploadError, setUploadError] = useState('')
   const [staffList,     setStaffList]     = useState<StaffMember[]>([])
   const [knownSpecies,  setKnownSpecies]  = useState<string[]>([])
+  const [showQrModal,   setShowQrModal]   = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -75,6 +77,13 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
       setKnownSpecies(unique)
     })
   }, [])
+
+  useEffect(() => {
+    if (!animal || animal.qrCode) return
+    generateQrDataUrl(animal.id).then(qrCode => {
+      updateDoc(doc(db, 'animals', animal.id), { qrCode } as any)
+    })
+  }, [animal])
 
   useEffect(() => {
     return onSnapshot(collection(db, 'animals', id, 'documents'), snap => {
@@ -237,8 +246,8 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
             {hasAlert && <span className="hero-badge hero-badge-alert">⚠ Alerte sanitaire</span>}
           </div>
         </div>
-        <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,.12)', color: 'white', borderColor: 'rgba(255,255,255,.2)', flexShrink: 0 }}>
-          📱 QR Code
+        <button className="btn btn-sm" style={{ background: 'rgba(255,255,255,.12)', color: 'white', borderColor: 'rgba(255,255,255,.2)', flexShrink: 0 }} onClick={() => setShowQrModal(true)}>
+          QR Code
         </button>
       </div>
 
@@ -686,6 +695,37 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
 
         </div>
       </div>
+
+      {showQrModal && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={() => setShowQrModal(false)}
+        >
+          <div
+            style={{ background: 'var(--slate-0, #fff)', borderRadius: 16, padding: 'var(--sp-6)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-4)', minWidth: 320, boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--slate-900)' }}>QR Code — {animal.name}</div>
+            {animal.qrCode
+              ? <img src={animal.qrCode} alt={`QR code ${animal.name}`} style={{ width: 220, height: 220 }} />
+              : <div style={{ width: 220, height: 220, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--slate-400)', fontSize: 13 }}>Génération en cours…</div>
+            }
+            <div style={{ fontSize: 12, color: 'var(--slate-400)', fontFamily: 'monospace' }}>{animal.id}</div>
+            <div style={{ display: 'flex', gap: 'var(--sp-3)' }}>
+              {animal.qrCode && (
+                <a
+                  href={animal.qrCode}
+                  download={`qr-${animal.id}.png`}
+                  className="btn btn-primary btn-sm"
+                >
+                  ⬇ Télécharger
+                </a>
+              )}
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowQrModal(false)}>Fermer</button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -54,10 +54,17 @@ service cloud.firestore {
         'sessions', 'lastSession', 'handler', 'gender', 'birthDate',
         'weight', 'chipId', 'lastVetCheck', 'antiparasiteOk',
         'antiparasiteInfo', 'vermifugeLastDate', 'establishments',
+        'nextSession', 'vaccines', 'qrCode'
+      ];
+      let requiredFields = [
+        'id', 'emoji', 'name', 'species', 'status', 'vaccineOk',
+        'sessions', 'lastSession', 'handler', 'gender', 'birthDate',
+        'weight', 'chipId', 'lastVetCheck', 'antiparasiteOk',
+        'antiparasiteInfo', 'vermifugeLastDate', 'establishments',
         'nextSession', 'vaccines'
       ];
       return hasOnlyAllowedFields(allowedFields)
-          && hasRequiredFields(allowedFields)
+          && hasRequiredFields(requiredFields)
           && d.id is string && d.id.size() >= 1 && d.id.size() <= 30
           && d.emoji is string && d.emoji.size() >= 1 && d.emoji.size() <= 8
           && d.name is string && d.name.size() >= 1 && d.name.size() <= 100
@@ -77,23 +84,28 @@ service cloud.firestore {
           && d.vermifugeLastDate is string && d.vermifugeLastDate.size() <= 20
           && d.establishments is list && d.establishments.size() <= 20
           && d.vaccines is list && d.vaccines.size() <= 10
-          && (d.nextSession == null || d.nextSession is map);
+          && (d.nextSession == null || d.nextSession is map)
+          && (!d.keys().hasAny(['qrCode']) || d.qrCode is string);
     }
 
     // ── Session validator ─────────────────────────────────────────
 
     function isValidSession() {
       let d = request.resource.data;
-      let allowedFields = ['id', 'animalIds', 'date', 'structure', 'handler', 'notes', 'status'];
+      let allowedFields = ['id', 'animalIds', 'date', 'structure', 'handler', 'notes', 'status', 'startedAt', 'endedAt', 'survey'];
+      let requiredFields = ['id', 'animalIds', 'date', 'structure', 'handler', 'notes', 'status']; 
       return hasOnlyAllowedFields(allowedFields)
-          && hasRequiredFields(allowedFields)
+          && hasRequiredFields(requiredFields)
           && d.id is string && d.id.size() >= 1 && d.id.size() <= 50
           && d.animalIds is list && d.animalIds.size() >= 1 && d.animalIds.size() <= 20
           && d.date is string && d.date.size() <= 30
           && d.structure is string && d.structure.size() <= 100
           && d.handler is string && d.handler.size() <= 100
           && d.notes is string && d.notes.size() <= 1000
-          && d.status in ['completed', 'planned', 'cancelled'];
+          && d.status in ['completed', 'planned', 'cancelled', 'inProgress']
+          && (!d.keys().hasAny(['startedAt']) || d.startedAt is timestamp)                                                                                                                                                                                                                                                 
+          && (!d.keys().hasAny(['endedAt']) || d.endedAt is timestamp)                                                                                                                                                                                                                                                     
+          && (!d.keys().hasAny(['survey']) || d.survey is map);
     }
 
     // ── Organization validator ────────────────────────────────────

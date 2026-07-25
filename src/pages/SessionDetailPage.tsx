@@ -160,6 +160,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
                 {editing && draft ? (
                   <select className="form-select" value={draft.status} onChange={e => setField('status', e.target.value as Session['status'])}>
                     <option value="planned">Planifiée</option>
+                    <option value="inProgress">En cours</option>
                     <option value="completed">Effectuée</option>
                     <option value="cancelled">Annulée</option>
                   </select>

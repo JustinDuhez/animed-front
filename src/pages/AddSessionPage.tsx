@@ -154,6 +154,7 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
                   <label className="form-label">Statut</label>
                   <select className="form-select" value={status} onChange={e => setStatus(e.target.value as Session['status'])}>
                     <option value="planned">Planifiée</option>
+                    <option value="inProgress">En cours</option>
                     <option value="completed">Effectuée</option>
                     <option value="cancelled">Annulée</option>
                   </select>
