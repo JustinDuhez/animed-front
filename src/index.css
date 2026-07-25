@@ -331,6 +331,7 @@ body {
 .badge-purple   { background: var(--purple-100); color: var(--purple-600); }
 .badge-teal     { background: var(--teal-100);   color: var(--teal-600); }
 .badge-terra    { background: var(--terra-100);  color: var(--terra-700); }
+.badge-terra    .badge-dot { background: var(--terra-500); }
 .badge-neutral  { background: var(--slate-100);  color: var(--slate-600); }
 
 /* ─── Cards ──────────────────────────────────────────────── */
