@@ -66,7 +66,6 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (animalIds.size === 0) { setError('Veuillez sélectionner au moins un animal.'); return }
     if (!date)                { setError('La date est requise.'); return }
     if (!structure.trim())    { setError('La structure est requise.'); return }
 
@@ -111,7 +110,7 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
           {/* Animals + date */}
           <div className="card">
             <div className="card-header">
-              <div className="card-title">Animaux <span className="form-required">*</span></div>
+              <div className="card-title">Animaux</div>
               {animalIds.size > 0 && (
                 <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--green-600)' }}>
                   {animalIds.size} sélectionné{animalIds.size > 1 ? 's' : ''}

@@ -24,9 +24,11 @@ export default function SessionCard({ session, animals, onClick }: Props) {
         </div>
         <span className={`badge ${cls}`}><span className="badge-dot" />{label}</span>
       </div>
-      {animals && animals.length > 0 && (
-        <div className="sc-animal">{animals.map(a => `${a.emoji} ${a.name}`).join(', ')}</div>
-      )}
+      <div className="sc-animal">
+        {animals && animals.length > 0
+          ? animals.map(a => `${a.emoji} ${a.name}`).join(', ')
+          : <span style={{ color: 'var(--slate-400)', fontStyle: 'italic' }}>Animaux à assigner</span>}
+      </div>
       <div className="sc-meta">
         <span>🥼 {session.handler || '—'}</span>
       </div>

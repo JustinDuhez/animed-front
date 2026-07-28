@@ -57,10 +57,7 @@ export default function SessionGridCard({ session, animals, onSelect, onSelectAn
               <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--green-600)' }}>{a.name}</div>
             </div>
           )) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
-              <div style={{ fontSize: 22, lineHeight: 1 }}>🐾</div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate-900)' }}>—</div>
-            </div>
+            <div style={{ fontSize: 12, color: 'var(--slate-400)', fontStyle: 'italic' }}>Animaux à assigner</div>
           )}
         </div>
       )}
