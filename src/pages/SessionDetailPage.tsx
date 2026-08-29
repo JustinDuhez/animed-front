@@ -288,6 +288,29 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
             </div>
           </div>
 
+          {session.status === 'completed' && session.survey && Object.keys(session.survey).length > 0 && (
+            <div className="card">
+              <div className="card-header"><div className="card-title">Résultats du questionnaire</div></div>
+              <div className="card-body">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+                  {Object.values(session.survey).map((entry, i) => {
+                    const e = entry as { question?: string; answer?: unknown }
+                    return (
+                      <div key={i}>
+                        <div style={{ fontSize: 12, color: 'var(--slate-500)', marginBottom: 4 }}>{e.question ?? '—'}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate-900)' }}>
+                          {typeof e.answer === 'boolean'
+                            ? (e.answer ? 'Oui' : 'Non')
+                            : e.answer != null ? String(e.answer) : '—'}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
 
         {/* ── Right column ── */}
