@@ -1,4 +1,5 @@
-export type OrgType = 'ehpad' | 'ime' | 'clinique' | 'creche' | 'hopital' | 'ecole' | 'autre'
+export const ORG_TYPES = ['ehpad', 'ets', 'scolaire', 'petiteEnfance', 'individuel'] as const
+export type OrgType = typeof ORG_TYPES[number]
 
 export interface Organization {
   id: string

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
+import { ORG_TYPES } from '../data/organization.js'
 import type { Organization, OrgType } from '../data/organization.js'
 import type { Session } from '../data/session.js'
 import PageHeader from '../components/ui/PageHeader.js'
@@ -11,18 +12,15 @@ import { formatDateTime } from '../utils/format.js'
 import { useRole } from '../context/RoleContext.js'
 
 const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
-  ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
-  ime:      { label: 'IME',      bg: '#e0e7ff', color: '#4338ca', icon: '🏫' },
-  clinique: { label: 'Clinique', bg: '#e0f2fe', color: '#0369a1', icon: '🏥' },
-  creche:   { label: 'Crèche',   bg: '#fff7ed', color: '#c2410c', icon: '🧸' },
-  hopital:  { label: 'Hôpital',  bg: '#fee2e2', color: '#b91c1c', icon: '🏥' },
-  ecole:    { label: 'École',    bg: '#fef9c3', color: '#a16207', icon: '🎒' },
-  autre:    { label: 'Autre',    bg: '#f1f5f9', color: '#475569', icon: '🏢' },
+  ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏥' },
+  ets:      { label: 'ETS',      bg: '#e0e7ff', color: '#4338ca', icon: '🏫' },
+  petiteEnfance:   { label: 'Petite Enfance',   bg: '#fff7ed', color: '#c2410c', icon: '🧸' },
+  scolaire:    { label: 'Scolaire',    bg: '#fef9c3', color: '#a16207', icon: '🎒' },
+  individuel:    { label: 'Individuel',    bg: '#f1f5f9', color: '#475569', icon: '🏡' },
 }
 
 type FilterTab = 'all' | OrgType
 
-const ALL_TYPES: OrgType[] = ['ehpad', 'ime', 'clinique', 'creche', 'hopital', 'ecole', 'autre']
 
 interface Props {
   onAddOrganization: () => void
@@ -96,9 +94,9 @@ export default function OrganizationsPage({ onAddOrganization, onSelectOrganizat
 
   const filterChips = [
     { key: 'all', label: 'Toutes', count: orgs.length },
-    ...ALL_TYPES
-      .filter(t => typeCounts[t])
-      .map(t => ({ key: t, label: TYPE_META[t].label, count: typeCounts[t] })),
+    ...ORG_TYPES
+      .filter((t: OrgType) => typeCounts[t])
+      .map((t: OrgType) => ({ key: t, label: TYPE_META[t].label, count: typeCounts[t] })),
   ]
 
   return (
