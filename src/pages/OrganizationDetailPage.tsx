@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { doc, onSnapshot, updateDoc, deleteDoc, collection } from 'firebase/firestore'
 import { db } from '../firebase.js'
+import { ORG_TYPE_META, ORG_TYPE_OPTIONS } from '../data/organization.js'
 import type { Organization, OrgType } from '../data/organization.js'
 import type { Session } from '../data/session.js'
 import PageHeader from '../components/ui/PageHeader.js'
@@ -9,25 +10,6 @@ import EmptyState from '../components/ui/EmptyState.js'
 import { formatFullDate, formatSessionLabel } from '../utils/format.js'
 import { useRole } from '../context/RoleContext.js'
 
-const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
-  ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏡' },
-  ime:      { label: 'IME',      bg: '#e0e7ff', color: '#4338ca', icon: '🏫' },
-  clinique: { label: 'Clinique', bg: '#e0f2fe', color: '#0369a1', icon: '🏥' },
-  creche:   { label: 'Crèche',   bg: '#fff7ed', color: '#c2410c', icon: '🧸' },
-  hopital:  { label: 'Hôpital',  bg: '#fee2e2', color: '#b91c1c', icon: '🏥' },
-  ecole:    { label: 'École',    bg: '#fef9c3', color: '#a16207', icon: '🎒' },
-  autre:    { label: 'Autre',    bg: '#f1f5f9', color: '#475569', icon: '🏢' },
-}
-
-const TYPE_OPTIONS: { value: OrgType; label: string }[] = [
-  { value: 'ehpad',    label: 'EHPAD' },
-  { value: 'ime',      label: 'IME (Institut Médico-Éducatif)' },
-  { value: 'clinique', label: 'Clinique' },
-  { value: 'creche',   label: 'Crèche' },
-  { value: 'hopital',  label: 'Hôpital' },
-  { value: 'ecole',    label: 'École' },
-  { value: 'autre',    label: 'Autre' },
-]
 
 interface Props {
   id: string
@@ -126,7 +108,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
   }
 
   const display = editing && draft ? draft : org
-  const { label, bg, color, icon } = TYPE_META[display.type]
+  const { label, bg, color, icon } = ORG_TYPE_META[display.type]
   const totalCount     = orgSessions.length
   const plannedCount   = orgSessions.filter(s => s.status === 'planned').length
   const completedCount = orgSessions.filter(s => s.status === 'completed').length
@@ -187,7 +169,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
                   <div className="info-label">Type</div>
                   {editing && draft ? (
                     <select className="form-select" value={draft.type} onChange={e => setField('type', e.target.value as OrgType)} style={{ marginTop: 4 }}>
-                      {TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      {ORG_TYPE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                     </select>
                   ) : (
                     <div className="info-value">

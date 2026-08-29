@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import { ORG_TYPES } from '../data/organization.js'
+import { ORG_TYPES, ORG_TYPE_META } from '../data/organization.js'
 import type { Organization, OrgType } from '../data/organization.js'
 import type { Session } from '../data/session.js'
 import PageHeader from '../components/ui/PageHeader.js'
@@ -11,13 +11,6 @@ import EmptyState from '../components/ui/EmptyState.js'
 import { formatDateTime } from '../utils/format.js'
 import { useRole } from '../context/RoleContext.js'
 
-const TYPE_META: Record<OrgType, { label: string; bg: string; color: string; icon: string }> = {
-  ehpad:    { label: 'EHPAD',    bg: '#dcfce7', color: '#15803d', icon: '🏥' },
-  ets:      { label: 'ETS',      bg: '#e0e7ff', color: '#4338ca', icon: '🏫' },
-  petiteEnfance:   { label: 'Petite Enfance',   bg: '#fff7ed', color: '#c2410c', icon: '🧸' },
-  scolaire:    { label: 'Scolaire',    bg: '#fef9c3', color: '#a16207', icon: '🎒' },
-  individuel:    { label: 'Individuel',    bg: '#f1f5f9', color: '#475569', icon: '🏡' },
-}
 
 type FilterTab = 'all' | OrgType
 
@@ -96,7 +89,7 @@ export default function OrganizationsPage({ onAddOrganization, onSelectOrganizat
     { key: 'all', label: 'Toutes', count: orgs.length },
     ...ORG_TYPES
       .filter((t: OrgType) => typeCounts[t])
-      .map((t: OrgType) => ({ key: t, label: TYPE_META[t].label, count: typeCounts[t] })),
+      .map((t: OrgType) => ({ key: t, label: ORG_TYPE_META[t].label, count: typeCounts[t] })),
   ]
 
   return (
@@ -133,7 +126,7 @@ export default function OrganizationsPage({ onAddOrganization, onSelectOrganizat
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--sp-4)' }}>
           {filtered.map(org => {
-            const { label, bg, color, icon } = TYPE_META[org.type]
+            const { label, bg, color, icon } = ORG_TYPE_META[org.type]
             const s = stats[org.id] ?? { sessionCount: 0, nextSession: null }
             return (
               <div key={org.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
