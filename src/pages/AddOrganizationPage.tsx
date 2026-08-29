@@ -1,17 +1,11 @@
 import { useState, FormEvent } from 'react'
 import { doc, setDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
+import { ORG_TYPE_OPTIONS } from '../data/organization.js'
 import type { OrgType, Organization } from '../data/organization.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 
-const TYPE_OPTIONS: { value: OrgType; label: string }[] = [
-  { value: 'ehpad',    label: 'EHPAD' },
-  { value: 'ets',      label: 'Etablissement Spécialisé' },
-  { value: 'scolaire', label: 'Scolaire' },
-  { value: 'petiteEnfance',   label: 'Petite Enfance' },
-  { value: 'individuel',  label: 'Individuel' },
-]
 
 interface Props {
   onBack: () => void
@@ -101,7 +95,7 @@ export default function AddOrganizationPage({ onBack, onSaved }: Props) {
                 <div className="form-field">
                   <label className="form-label">Type <span className="form-required">*</span></label>
                   <select className="form-select" value={type} onChange={e => setType(e.target.value as OrgType)}>
-                    {TYPE_OPTIONS.map(o => (
+                    {ORG_TYPE_OPTIONS.map(o => (
                       <option key={o.value} value={o.value}>{o.label}</option>
                     ))}
                   </select>
