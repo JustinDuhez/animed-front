@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { doc, onSnapshot, updateDoc, collection } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, deleteDoc, collection } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Organization, OrgType } from '../data/organization.js'
 import type { Session } from '../data/session.js'
@@ -68,6 +68,12 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
     setEditing(false)
     setDraft(null)
     setSaveError('')
+  }
+
+  async function deleteOrg() {
+    if (!window.confirm(`Supprimer « ${org?.name} » définitivement ?`)) return
+    await deleteDoc(doc(db, 'organizations', id))
+    onBack()
   }
 
   async function saveEditing() {
@@ -142,6 +148,7 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
       >
         {editing ? (
           <>
+            <button className="btn btn-danger"    onClick={deleteOrg}     disabled={saving}>🗑 Supprimer</button>
             <button className="btn btn-secondary" onClick={cancelEditing} disabled={saving}>Annuler</button>
             <button className="btn btn-primary"   onClick={saveEditing}   disabled={saving}>
               {saving ? 'Enregistrement…' : '✓ Enregistrer'}

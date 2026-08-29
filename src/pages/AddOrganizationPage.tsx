@@ -7,12 +7,10 @@ import AlertBanner from '../components/ui/AlertBanner.js'
 
 const TYPE_OPTIONS: { value: OrgType; label: string }[] = [
   { value: 'ehpad',    label: 'EHPAD' },
-  { value: 'ime',      label: 'IME (Institut Médico-Éducatif)' },
-  { value: 'clinique', label: 'Clinique' },
-  { value: 'creche',   label: 'Crèche' },
-  { value: 'hopital',  label: 'Hôpital' },
-  { value: 'ecole',    label: 'École' },
-  { value: 'autre',    label: 'Autre' },
+  { value: 'ets',      label: 'Etablissement Spécialisé' },
+  { value: 'scolaire', label: 'Scolaire' },
+  { value: 'petiteEnfance',   label: 'Petite Enfance' },
+  { value: 'individuel',  label: 'Individuel' },
 ]
 
 interface Props {
