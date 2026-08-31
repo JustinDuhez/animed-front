@@ -381,6 +381,30 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                         </div>}
                   </div>
 
+                  {(() => {
+                    const isPenOverdue = d.penMaintenance
+                      ? (Date.now() - new Date(d.penMaintenance).getTime()) > 15 * 24 * 60 * 60 * 1000
+                      : false
+                    return (
+                      <div className={`info-tile${isPenOverdue ? ' info-tile-alert' : ''}`}>
+                        <div className="info-label">Entretien du box (dernière date)</div>
+                        {editing && draft
+                          ? <input className="form-input" type="date" value={draft.penMaintenance ?? ''} onChange={e => setField('penMaintenance', e.target.value || undefined as any)} style={{ marginTop: 4 }} />
+                          : <div className="info-value" style={{ fontSize: 13 }}>
+                              {d.penMaintenance
+                                ? <>
+                                    <span style={{ color: isPenOverdue ? 'var(--red-500)' : 'var(--green-600)' }}>
+                                      {isPenOverdue ? '⚠ ' : '✓ '}
+                                      {new Date(d.penMaintenance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </span>
+                                    {isPenOverdue && <div className="info-sub" style={{ color: 'var(--red-500)' }}>Nettoyage requis — plus de 15 jours</div>}
+                                  </>
+                                : <span style={{ color: 'var(--slate-400)' }}>—</span>}
+                            </div>}
+                      </div>
+                    )
+                  })()}
+
                   <div className="info-tile">
                     <div className="info-label">Intervenant référent</div>
                     {editing && draft

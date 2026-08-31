@@ -54,7 +54,7 @@ service cloud.firestore {
         'sessions', 'lastSession', 'handler', 'gender', 'birthDate',
         'weight', 'chipId', 'lastVetCheck', 'antiparasiteOk',
         'antiparasiteInfo', 'vermifugeLastDate', 'establishments',
-        'nextSession', 'vaccines', 'qrCode'
+        'nextSession', 'vaccines', 'qrCode', 'penMaintenance'
       ];
       let requiredFields = [
         'id', 'emoji', 'name', 'species', 'status', 'vaccineOk',
@@ -85,7 +85,8 @@ service cloud.firestore {
           && d.establishments is list && d.establishments.size() <= 20
           && d.vaccines is list && d.vaccines.size() <= 10
           && (d.nextSession == null || d.nextSession is map)
-          && (!d.keys().hasAny(['qrCode']) || d.qrCode is string);
+          && (!d.keys().hasAny(['qrCode']) || d.qrCode is string)
+          && (!d.keys().hasAny(['penMaintenance']) || d.penMaintenance is string);
     }
 
     // ── Session validator ─────────────────────────────────────────

@@ -38,6 +38,7 @@ export interface Animal {
   nextSession: { structure: string; date: string } | null
   vaccines: Vaccine[]
   qrCode?: string
+  penMaintenance?: string  // ISO date of last pen cleaning
 }
 
 export const ANIMALS: Animal[] = [
