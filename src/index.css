@@ -728,6 +728,11 @@ td.td-actions    { text-align: right; padding-right: var(--sp-4); }
 }
 .login-alert { margin-bottom: var(--sp-5); }
 .login-submit { width: 100%; justify-content: center; margin-top: var(--sp-2); }
+
+.login-divider { display: flex; align-items: center; gap: var(--sp-3); color: var(--slate-400); font-size: 12px; margin: var(--sp-1) 0; }
+.login-divider::before, .login-divider::after { content: ''; flex: 1; height: 1px; background: var(--slate-150, var(--slate-200)); }
+
+.login-google { width: 100%; justify-content: center; gap: var(--sp-2); }
 .login-switch {
   margin-top: var(--sp-5);
   text-align: center;
