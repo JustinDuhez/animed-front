@@ -52,8 +52,9 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal, initialFilter
   const [filter,   setFilter]   = useState<FilterTab>(initialFilter ?? 'tous')
   const [page,     setPage]     = useState(1)
   const [selected, setSelected] = useState<Set<string>>(new Set())
-  const [sortKey,  setSortKey]  = useState<SortKey | null>('name')
-  const [sortDir,  setSortDir]  = useState<SortDir>('asc')
+  const [sortKey,    setSortKey]    = useState<SortKey | null>('name')
+  const [sortDir,    setSortDir]    = useState<SortDir>('asc')
+  const [showQrGrid, setShowQrGrid] = useState(false)
 
   const selectAllRef = useRef<HTMLInputElement>(null)
 
@@ -189,6 +190,7 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
             onChange={handleSearch}
           />
           <FilterBar chips={filterChips} active={filter} onChange={f => handleFilter(f as FilterTab)} />
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowQrGrid(true)}>QR Codes</button>
           <button className="btn btn-secondary btn-sm">⬇ Exporter</button>
         </div>
 
@@ -325,6 +327,37 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
           </div>
         </div>
       </div>
+
+      {showQrGrid && (
+        <div
+          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          onClick={() => setShowQrGrid(false)}
+        >
+          <div
+            style={{ background: 'var(--slate-0, #fff)', borderRadius: 16, padding: 'var(--sp-6)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)', width: 'min(900px, 90vw)', maxHeight: '85vh', boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--sp-6)' }}>
+              <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--slate-900)' }}>QR Codes — {animals.length} animaux</div>
+              <button className="btn btn-secondary btn-sm" onClick={() => setShowQrGrid(false)}>Fermer</button>
+            </div>
+            <div style={{ overflowY: 'auto', maxHeight: '65vh' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 'var(--sp-4)' }}>
+              {animals.map(a => (
+                <div key={a.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--sp-2)', padding: 'var(--sp-3)', border: '1px solid var(--slate-100)', borderRadius: 12 }}>
+                  {a.qrCode
+                    ? <img src={a.qrCode} alt={`QR ${a.name}`} style={{ width: 120, height: 120 }} />
+                    : <div style={{ width: 120, height: 120, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--slate-300)', fontSize: 11 }}>En cours…</div>
+                  }
+                  <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--slate-900)', textAlign: 'center' }}>{a.emoji} {a.name}</div>
+                  <div style={{ fontSize: 10, color: 'var(--slate-400)', fontFamily: 'monospace' }}>{a.id}</div>
+                </div>
+              ))}
+            </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

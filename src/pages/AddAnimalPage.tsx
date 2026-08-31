@@ -48,6 +48,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
   const [antiparasiteOk, setAntiparasiteOk] = useState(false)
   const [antiparasiteInfo, setAntiparasiteInfo] = useState('')
   const [vermifugeLastDate, setVermifugeLastDate] = useState('')
+  const [penMaintenance, setPenMaintenance] = useState('')
 
   const [vaccines, setVaccines] = useState<Vaccine[]>([])
   const [establishments, setEstablishments] = useState<string[]>([])
@@ -106,6 +107,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
         antiparasiteOk,
         antiparasiteInfo: antiparasiteInfo.trim() || 'Non renseigné',
         vermifugeLastDate: vermifugeLastDate.trim() || '—',
+        ...(penMaintenance.trim() ? { penMaintenance: penMaintenance.trim() } : {}),
         establishments: establishments.filter(e => e.trim()),
         nextSession: nextSessionStructure.trim() && nextSessionDate.trim()
           ? { structure: nextSessionStructure.trim(), date: nextSessionDate.trim() }
@@ -235,6 +237,10 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
                   <div className="form-field">
                     <label className="form-label">Vermifuge (dernier traitement)</label>
                     <input className="form-input" type="date" value={vermifugeLastDate} onChange={e => setVermifugeLastDate(e.target.value)} />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Entretien du box (dernière date)</label>
+                    <input className="form-input" type="date" value={penMaintenance} onChange={e => setPenMaintenance(e.target.value)} />
                   </div>
                   <div className="form-field" style={{ gridColumn: '1 / -1' }}>
                     <label className="form-checkbox-row">
