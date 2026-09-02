@@ -165,7 +165,7 @@ service cloud.firestore {
                     && isValidSession()
                     && request.resource.data.id == resource.data.id;
 
-      allow delete: if isAuthenticated() && isAdmin();
+      allow delete: if isAuthenticated() && isEditor();
     }
 
     // ── Organizations collection ──────────────────────────────────

@@ -8,8 +8,9 @@ import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import SessionGridCard from '../components/ui/SessionGridCard.js'
+import GoogleCalendarImportModal from '../components/ui/GoogleCalendarImportModal.js'
 import { formatMonthHeading, formatSessionLabel } from '../utils/format.js'
-import { useRole } from '../context/RoleContext.js'
+import { useRole, useIsGoogleUser } from '../context/RoleContext.js'
 
 type FilterTab = 'all' | 'completed' | 'planned' | 'cancelled'
 
@@ -27,12 +28,14 @@ interface Props {
 }
 
 export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSession }: Props) {
-  const canWrite = useRole() !== 'viewer'
-  const [sessions,  setSessions]  = useState<Session[]>([])
-  const [animals,   setAnimals]   = useState<Record<string, Animal>>({})
-  const [loading,   setLoading]   = useState(true)
-  const [filter,    setFilter]    = useState<FilterTab>('all')
-  const [search,    setSearch]    = useState('')
+  const canWrite      = useRole() !== 'viewer'
+  const isGoogleUser  = useIsGoogleUser()
+  const [sessions,        setSessions]        = useState<Session[]>([])
+  const [animals,         setAnimals]         = useState<Record<string, Animal>>({})
+  const [loading,         setLoading]         = useState(true)
+  const [filter,          setFilter]          = useState<FilterTab>('all')
+  const [search,          setSearch]          = useState('')
+  const [showGCalImport,  setShowGCalImport]  = useState(false)
 
   useEffect(() => {
     const unsubSessions = onSnapshot(collection(db, 'sessions'), snap => {
@@ -95,6 +98,7 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
         title="Séances"
         subtitle={`${counts.all} séance${counts.all !== 1 ? 's' : ''} · ${counts.planned} planifiée${counts.planned !== 1 ? 's' : ''}`}
       >
+        {canWrite && isGoogleUser && <button className="btn btn-secondary" onClick={() => setShowGCalImport(true)}>📅 Google Agenda</button>}
         {canWrite && <button className="btn btn-primary" onClick={onAddSession}>+ Planifier une séance</button>}
       </PageHeader>
 
@@ -145,6 +149,13 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
             </div>
           ))}
         </div>
+      )}
+
+      {showGCalImport && (
+        <GoogleCalendarImportModal
+          onClose={() => setShowGCalImport(false)}
+          onImported={count => { console.log(`${count} sessions imported`) }}
+        />
       )}
     </>
   )

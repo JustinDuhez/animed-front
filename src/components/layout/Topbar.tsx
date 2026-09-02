@@ -28,16 +28,6 @@ export default function Topbar({ crumbs, onNavigate }: Props) {
         ))}
       </nav>
 
-      <div className="tb-actions">
-        <div className="tb-search">
-          <span>🔍</span>
-          <span>Rechercher…</span>
-        </div>
-        <div className="tb-notif">
-          🔔
-          <span className="tb-notif-dot" />
-        </div>
-      </div>
     </header>
   )
 }
