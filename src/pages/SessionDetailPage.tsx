@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react'
-import { doc, onSnapshot, updateDoc, deleteDoc, collection } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, deleteDoc, collection, writeBatch, increment } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import type { Session } from '../data/session.js'
 import type { Organization } from '../data/organization.js'
+import type { UserRecord } from '../data/user.js'
 import { SESSION_STATUS_MAP } from '../utils/badges.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
@@ -24,6 +25,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
   const [sessionAnimals, setSessionAnimals] = useState<Animal[]>([])
   const [allAnimals,     setAllAnimals]     = useState<Record<string, Animal>>({})
   const [orgs,           setOrgs]           = useState<Organization[]>([])
+  const [users,          setUsers]          = useState<UserRecord[]>([])
   const [editing,           setEditing]           = useState(false)
   const [draft,             setDraft]             = useState<Session | null>(null)
   const [saving,            setSaving]            = useState(false)
@@ -59,6 +61,17 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
     })
   }, [])
 
+  useEffect(() => {
+    return onSnapshot(collection(db, 'users'), snap => {
+      setUsers(
+        snap.docs
+          .map(d => ({ uid: d.id, ...d.data() } as UserRecord))
+          .filter(u => u.displayName)
+          .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'))
+      )
+    })
+  }, [])
+
   function startEditing() {
     if (!session) return
     setDraft({ ...session })
@@ -84,6 +97,9 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
     setSaveError('')
     try {
       await updateDoc(doc(db, 'sessions', id), draft as any)
+      if (session?.status !== 'completed' && draft.status === 'completed') {
+        await updateAnimalLastSessions(draft.animalIds, draft.date)
+      }
       setEditing(false)
       setDraft(null)
     } catch {
@@ -95,6 +111,20 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
 
   function setField<K extends keyof Session>(field: K, value: Session[K]) {
     setDraft(d => d ? { ...d, [field]: value } : d)
+  }
+
+  async function updateAnimalLastSessions(animalIds: string[], sessionDate: string) {
+    const month = sessionDate.slice(0, 7) // YYYY-MM
+    const batch = writeBatch(db)
+    for (const animalId of animalIds) {
+      const current = allAnimals[animalId]?.lastSession
+      const updates: Record<string, unknown> = { [`sessions.${month}`]: increment(1) }
+      if (!current || current === '—' || sessionDate > current) {
+        updates.lastSession = sessionDate
+      }
+      batch.update(doc(db, 'animals', animalId), updates)
+    }
+    await batch.commit()
   }
 
   if (session === undefined) return <EmptyState icon="📋" title="Chargement…" />
@@ -138,7 +168,11 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
             {canWrite && <button className="btn btn-primary" onClick={startEditing}>✏ Modifier</button>}
             {canWrite && session.status !== 'completed' && (
               <button className="btn btn-primary" style={{ background: 'var(--green-600)', borderColor: 'var(--green-600)' }}
-                onClick={async () => { if (window.confirm('Compléter la réalisation de cette séance ?')) await updateDoc(doc(db, 'sessions', id), { status: 'completed' }) }}>
+                onClick={async () => {
+                  if (!window.confirm('Compléter la réalisation de cette séance ?')) return
+                  await updateDoc(doc(db, 'sessions', id), { status: 'completed' })
+                  await updateAnimalLastSessions(session.animalIds, session.date)
+                }}>
                 Compléter la séance
               </button>
             )}
@@ -265,7 +299,10 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Intervenant</div>
                   {editing && draft ? (
-                    <input className="form-input" type="text" value={draft.handler} onChange={e => setField('handler', e.target.value)} style={{ marginTop: 4 }} />
+                    <select className="form-select" value={draft.handler} onChange={e => setField('handler', e.target.value)} style={{ marginTop: 4 }}>
+                      <option value="">— Sélectionner un intervenant —</option>
+                      {users.map(u => <option key={u.uid} value={u.displayName}>{u.displayName}</option>)}
+                    </select>
                   ) : (
                     <div className="info-value">{s.handler || '—'}</div>
                   )}

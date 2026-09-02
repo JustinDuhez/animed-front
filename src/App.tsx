@@ -14,13 +14,13 @@ import OrganizationsPage from './pages/OrganizationsPage.js'
 import AddOrganizationPage from './pages/AddOrganizationPage.js'
 import OrganizationDetailPage from './pages/OrganizationDetailPage.js'
 import StaffPage from './pages/StaffPage.js'
-import AddStaffPage from './pages/AddStaffPage.js'
 import StaffDetailPage from './pages/StaffDetailPage.js'
 import PlaceholderPage from './pages/PlaceholderPage.js'
 import UsersPage from './pages/UsersPage.js'
+import ProfilePage from './pages/ProfilePage.js'
 import LoginPage from './pages/LoginPage.js'
 
-type PageKey = 'dashboard' | 'animals' | 'sessions' | 'structures' | 'users' | 'staff' | 'alerts' | 'settings'
+type PageKey = 'dashboard' | 'animals' | 'sessions' | 'structures' | 'users' | 'staff' | 'alerts' | 'settings' | 'profile'
 
 function App() {
   const [page, setPage] = useState<PageKey>('dashboard')
@@ -31,7 +31,6 @@ function App() {
   const [selectedSession, setSelectedSession] = useState<{ id: string; label: string } | null>(null)
   const [addingOrganization,    setAddingOrganization]    = useState(false)
   const [selectedOrganization, setSelectedOrganization] = useState<{ id: string; name: string } | null>(null)
-  const [addingStaff,          setAddingStaff]           = useState(false)
   const [selectedStaff,        setSelectedStaff]         = useState<{ id: string; name: string } | null>(null)
   const [animalsInitialFilter, setAnimalsInitialFilter]  = useState<'alerte' | undefined>(undefined)
   const [sessionPreselectedAnimalId, setSessionPreselectedAnimalId] = useState<string | null>(null)
@@ -51,7 +50,6 @@ function App() {
     setSelectedSession(null)
     setAddingOrganization(false)
     setSelectedOrganization(null)
-    setAddingStaff(false)
     setSelectedStaff(null)
     setAnimalsInitialFilter(undefined)
     setSessionPreselectedAnimalId(null)
@@ -65,7 +63,7 @@ function App() {
     : page === 'structures'
       ? addingOrganization ? 'Nouvelle structure' : selectedOrganization ? selectedOrganization.name : undefined
     : page === 'staff'
-      ? addingStaff ? 'Nouvel intervenant' : selectedStaff ? selectedStaff.name : undefined
+      ? selectedStaff ? selectedStaff.name : undefined
     : undefined
 
   return (
@@ -148,20 +146,14 @@ function App() {
           onSelectSession={(id, label) => { setPage('sessions'); setSelectedSession({ id, label }) }}
         />
       )}
-      {page === 'users' && <UsersPage />}
-      {page === 'staff' && !addingStaff && !selectedStaff && (
+      {page === 'users'   && <UsersPage />}
+      {page === 'profile' && <ProfilePage />}
+      {page === 'staff' && !selectedStaff && (
         <StaffPage
-          onAddStaff={() => setAddingStaff(true)}
           onSelectStaff={(id, name) => setSelectedStaff({ id, name })}
         />
       )}
-      {page === 'staff' && addingStaff && (
-        <AddStaffPage
-          onBack={() => setAddingStaff(false)}
-          onSaved={(id, name) => { setAddingStaff(false); setSelectedStaff({ id, name }) }}
-        />
-      )}
-      {page === 'staff' && selectedStaff && !addingStaff && (
+      {page === 'staff' && selectedStaff && (
         <StaffDetailPage
           id={selectedStaff.id}
           onBack={() => setSelectedStaff(null)}

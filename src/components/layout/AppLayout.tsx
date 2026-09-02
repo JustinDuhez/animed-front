@@ -12,6 +12,7 @@ const CRUMBS: Record<string, Array<{ label: string; key?: string }>> = {
   staff:      [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Intervenants' }],
   alerts:     [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Alertes' }],
   settings:   [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Paramètres' }],
+  profile:    [{ label: 'Tableau de bord', key: 'dashboard' }, { label: 'Mon profil' }],
 }
 
 interface Props {

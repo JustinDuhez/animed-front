@@ -33,6 +33,12 @@ function sortIcon(key: SortKey, sortKey: SortKey | null, sortDir: SortDir) {
   )
 }
 
+const PEN_OVERDUE_MS = 15 * 24 * 60 * 60 * 1000
+
+function isPenOverdue(a: Animal) {
+  return !!a.penMaintenance && (Date.now() - new Date(a.penMaintenance).getTime()) > PEN_OVERDUE_MS
+}
+
 function thClass(key: SortKey, sortKey: SortKey | null, sortDir: SortDir) {
   if (sortKey !== key) return 'sortable'
   return `sortable ${sortDir === 'asc' ? 'sort-asc' : 'sort-desc'}`
@@ -70,7 +76,7 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
     tous:   animals.length,
     actif:  animals.filter((a: Animal) => a.status === 'actif').length,
     repos:  animals.filter((a: Animal) => a.status === 'repos').length,
-    alerte: animals.filter((a: Animal) => a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji))).length,
+    alerte: animals.filter((a: Animal) => a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)) || isPenOverdue(a)).length,
   }), [animals])
 
   const processed = useMemo(() => {
@@ -78,7 +84,7 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
 
     if (filter === 'actif')  data = data.filter(a => a.status === 'actif')
     if (filter === 'repos')  data = data.filter(a => a.status === 'repos')
-    if (filter === 'alerte') data = data.filter(a => a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)))
+    if (filter === 'alerte') data = data.filter(a => a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)) || isPenOverdue(a))
 
     if (search.trim()) {
       const q = search.toLowerCase()
@@ -218,6 +224,7 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
                 Séances / mois {sortIcon('sessions', sortKey, sortDir)}
               </th>
               <th>Dernière séance</th>
+              <th>Entretien box</th>
               <th className={thClass('handler', sortKey, sortDir)} onClick={() => handleSort('handler')}>
                 Intervenant {sortIcon('handler', sortKey, sortDir)}
               </th>
@@ -227,7 +234,7 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
           <tbody>
             {paginated.length === 0 ? (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={10}>
                   <EmptyState
                     icon="🐾"
                     title="Aucun animal trouvé"
@@ -283,6 +290,16 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
                 <td>{a.sessions[new Date().toISOString().slice(0, 7)] ?? 0}</td>
                 <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>
                   {formatShortDate(a.lastSession)}
+                </td>
+                <td>
+                  {a.penMaintenance ? (() => {
+                    const overdue = (Date.now() - new Date(a.penMaintenance).getTime()) > 15 * 24 * 60 * 60 * 1000
+                    return (
+                      <span style={{ color: overdue ? 'var(--red-500)' : 'var(--green-600)', fontSize: 12, fontWeight: 600 }}>
+                        {overdue ? '⚠ ' : '✓ '}{formatShortDate(a.penMaintenance)}
+                      </span>
+                    )
+                  })() : <span style={{ color: 'var(--slate-300)' }}>—</span>}
                 </td>
                 <td style={{ color: a.handler === '—' ? 'var(--slate-300)' : 'var(--slate-600)' }}>
                   {a.handler}

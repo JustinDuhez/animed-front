@@ -30,17 +30,17 @@ service cloud.firestore {
     // ── Users collection ──────────────────────────────────────────
 
     match /users/{uid} {
-      allow read:   if isAuthenticated() && (request.auth.uid == uid || isAdmin());
+      allow read:   if isAuthenticated();
       allow create: if isAuthenticated()
                     && request.auth.uid == uid
                     && request.resource.data.role == 'viewer'
-                    && hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt']);
+                    && hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt', 'phone', 'type', 'acacedCertified', 'notes']);
       allow update: if isAuthenticated() && (
                       isAdmin() ||
                       // Users can update their own profile but cannot change their role
                       (request.auth.uid == uid
                         && request.resource.data.role == resource.data.role
-                        && hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt']))
+                        && hasOnlyAllowedFields(['email', 'displayName', 'role', 'createdAt', 'phone', 'type', 'acacedCertified', 'notes']))
                     );
       allow delete: if false;
     }
@@ -181,42 +181,6 @@ service cloud.firestore {
       allow update: if isAuthenticated()
                     && isEditor()
                     && isValidOrganization()
-                    && request.resource.data.id == resource.data.id;
-
-      allow delete: if isAuthenticated() && isAdmin();
-    }
-
-    // ── Staff validator ──────────────────────────────────────────
-
-    function isValidStaff() {
-      let d = request.resource.data;
-      let allowedFields = ['id', 'firstName', 'lastName', 'email', 'phone', 'type', 'status', 'acacedCertified', 'notes'];
-      return hasOnlyAllowedFields(allowedFields)
-          && hasRequiredFields(allowedFields)
-          && d.id is string && d.id.size() >= 1 && d.id.size() <= 50
-          && d.firstName is string && d.firstName.size() <= 100
-          && d.lastName is string && d.lastName.size() <= 100
-          && d.email is string && d.email.size() <= 100
-          && d.phone is string && d.phone.size() <= 30
-          && d.type in ['educateur', 'psychologue', 'infirmier', 'kinesitherapeute', 'veterinaire', 'benevole', 'autre']
-          && d.status in ['active', 'inactive']
-          && d.acacedCertified is bool
-          && d.notes is string && d.notes.size() <= 1000;
-    }
-
-    // ── Staff collection ──────────────────────────────────────────
-
-    match /staff/{staffId} {
-      allow read: if isAuthenticated();
-
-      allow create: if isAuthenticated()
-                    && isEditor()
-                    && isValidStaff()
-                    && request.resource.data.id == staffId;
-
-      allow update: if isAuthenticated()
-                    && isEditor()
-                    && isValidStaff()
                     && request.resource.data.id == resource.data.id;
 
       allow delete: if isAuthenticated() && isAdmin();
