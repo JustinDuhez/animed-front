@@ -1,10 +1,12 @@
-import { useState } from 'react'
-import { doc, setDoc } from 'firebase/firestore'
+import { useState, useEffect } from 'react'
+import { doc, setDoc, collection, getDocs } from 'firebase/firestore'
 import { db } from '../../firebase.js'
+import type { Organization } from '../../data/organization.js'
 import {
   requestCalendarToken,
   fetchCalendarEvents,
   calendarEventToSession,
+  matchOrganization,
   type CalendarEvent,
 } from '../../utils/googleCalendar.js'
 import { formatDateTime } from '../../utils/format.js'
@@ -29,21 +31,28 @@ export default function GoogleCalendarImportModal({ onClose, onImported }: Props
   const inTwoMonths = new Date(today)
   inTwoMonths.setMonth(inTwoMonths.getMonth() + 2)
 
-  const [step,       setStep]       = useState<Step>('pick-range')
-  const [from,       setFrom]       = useState(toDateInputValue(today))
-  const [to,         setTo]         = useState(toDateInputValue(inTwoMonths))
-  const [events,     setEvents]     = useState<CalendarEvent[]>([])
-  const [selected,   setSelected]   = useState<Set<string>>(new Set())
-  const [error,      setError]      = useState<string | null>(null)
-  const [fetching,   setFetching]   = useState(false)
-  const [importedN,  setImportedN]  = useState(0)
+  const [step,      setStep]      = useState<Step>('pick-range')
+  const [from,      setFrom]      = useState(toDateInputValue(today))
+  const [to,        setTo]        = useState(toDateInputValue(inTwoMonths))
+  const [events,    setEvents]    = useState<CalendarEvent[]>([])
+  const [orgs,      setOrgs]      = useState<Organization[]>([])
+  const [selected,  setSelected]  = useState<Set<string>>(new Set())
+  const [error,     setError]     = useState<string | null>(null)
+  const [fetching,  setFetching]  = useState(false)
+  const [importedN, setImportedN] = useState(0)
+
+  useEffect(() => {
+    getDocs(collection(db, 'organizations')).then(snap => {
+      setOrgs(snap.docs.map(d => d.data() as Organization))
+    })
+  }, [])
 
   async function handleFetch() {
     setError(null)
     setFetching(true)
     try {
-      const token  = await requestCalendarToken()
-      const items  = await fetchCalendarEvents(token, new Date(from), new Date(to + 'T23:59:59'))
+      const token = await requestCalendarToken()
+      const items = await fetchCalendarEvents(token, new Date(from), new Date(to + 'T23:59:59'))
       setEvents(items)
       setSelected(new Set(items.map(e => e.id)))
       setStep('pick-events')
@@ -61,8 +70,8 @@ export default function GoogleCalendarImportModal({ onClose, onImported }: Props
     const toImport = events.filter(e => selected.has(e.id))
     await Promise.all(
       toImport.map(event => {
-        const id = generateId()
-        const session = { id, ...calendarEventToSession(event) }
+        const id      = generateId()
+        const session = { id, ...calendarEventToSession(event, orgs) }
         return setDoc(doc(db, 'sessions', id), session)
       })
     )
@@ -167,7 +176,8 @@ export default function GoogleCalendarImportModal({ onClose, onImported }: Props
                 {/* Event list */}
                 <div style={{ overflowY: 'auto', maxHeight: '40vh', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
                   {events.map(event => {
-                    const dateStr = event.start.dateTime ?? event.start.date ?? ''
+                    const dateStr  = event.start.dateTime ?? event.start.date ?? ''
+                    const matched  = matchOrganization(event.location ?? '', orgs)
                     return (
                       <label
                         key={event.id}
@@ -186,6 +196,14 @@ export default function GoogleCalendarImportModal({ onClose, onImported }: Props
                             {dateStr ? formatDateTime(dateStr) : '—'}
                             {event.location && <> · 📍 {event.location}</>}
                           </div>
+                          {/* Org match indicator */}
+                          {event.location && (
+                            <div style={{ fontSize: 11, marginTop: 4 }}>
+                              {matched
+                                ? <span style={{ color: 'var(--green-600)', fontWeight: 600 }}>✓ {matched.name}</span>
+                                : <span style={{ color: 'var(--slate-400)', fontStyle: 'italic' }}>Aucune structure correspondante — adresse ajoutée aux notes</span>}
+                            </div>
+                          )}
                           {event.description && (
                             <div style={{ fontSize: 11, color: 'var(--slate-500)', marginTop: 4, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {event.description}
