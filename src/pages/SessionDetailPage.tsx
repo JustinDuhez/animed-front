@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { doc, onSnapshot, updateDoc, deleteDoc, collection, writeBatch, increment } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, deleteDoc, collection, writeBatch, increment, FieldValue } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import type { Session } from '../data/session.js'
@@ -118,7 +118,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
     const batch = writeBatch(db)
     for (const animalId of animalIds) {
       const current = allAnimals[animalId]?.lastSession
-      const updates: Record<string, unknown> = { [`sessions.${month}`]: increment(1) }
+      const updates: Record<string, FieldValue | string> = { [`sessions.${month}`]: increment(1) }
       if (!current || current === '—' || sessionDate > current) {
         updates.lastSession = sessionDate
       }
