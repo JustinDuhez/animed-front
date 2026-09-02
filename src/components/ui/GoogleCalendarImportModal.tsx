@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { doc, setDoc, collection, getDocs } from 'firebase/firestore'
-import { db } from '../../firebase.js'
+import { db, auth } from '../../firebase.js'
 import type { Organization } from '../../data/organization.js'
 import {
   requestCalendarToken,
@@ -67,11 +67,12 @@ export default function GoogleCalendarImportModal({ onClose, onImported }: Props
 
   async function handleImport() {
     setStep('importing')
+    const handler  = auth.currentUser?.displayName ?? ''
     const toImport = events.filter(e => selected.has(e.id))
     await Promise.all(
       toImport.map(event => {
         const id      = generateId()
-        const session = { id, ...calendarEventToSession(event, orgs) }
+        const session = { id, ...calendarEventToSession(event, orgs), handler }
         return setDoc(doc(db, 'sessions', id), session)
       })
     )

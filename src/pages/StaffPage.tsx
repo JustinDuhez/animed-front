@@ -1,115 +1,99 @@
 import { useState, useEffect, useMemo } from 'react'
 import { collection, onSnapshot } from 'firebase/firestore'
 import { db } from '../firebase.js'
-import type { StaffMember, StaffType } from '../data/staff.js'
+import type { UserRecord, UserType } from '../data/user.js'
+import { USER_TYPES, USER_TYPE_META } from '../data/user.js'
 import type { Session } from '../data/session.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatDateTime } from '../utils/format.js'
-import { useRole } from '../context/RoleContext.js'
 
-const TYPE_META: Record<StaffType, { label: string; bg: string; color: string; icon: string }> = {
-  educateur:        { label: 'Éducateur',   bg: '#e0e7ff', color: '#4338ca', icon: '🧑‍🏫' },
-  psychologue:      { label: 'Psychologue', bg: '#fce7f3', color: '#9d174d', icon: '🧠'   },
-  infirmier:        { label: 'Infirmier',   bg: '#e0f2fe', color: '#0369a1', icon: '💉'   },
-  kinesitherapeute: { label: 'Kiné',        bg: '#dcfce7', color: '#15803d', icon: '🏃'   },
-  veterinaire:      { label: 'Vétérinaire', bg: '#fff7ed', color: '#c2410c', icon: '🩺'   },
-  benevole:         { label: 'Bénévole',    bg: '#fef9c3', color: '#a16207', icon: '🤝'   },
-  autre:            { label: 'Autre',       bg: '#f1f5f9', color: '#475569', icon: '👤'   },
-}
-
-const ALL_TYPES: StaffType[] = ['educateur', 'psychologue', 'infirmier', 'kinesitherapeute', 'veterinaire', 'benevole', 'autre']
-
-type FilterTab = 'all' | StaffType
+type FilterTab = 'all' | UserType
 
 interface Props {
-  onAddStaff:    () => void
-  onSelectStaff: (id: string, name: string) => void
+  onSelectStaff: (uid: string, name: string) => void
 }
 
-export default function StaffPage({ onAddStaff, onSelectStaff }: Props) {
-  const canWrite = useRole() !== 'viewer'
-  const [staff,    setStaff]    = useState<StaffMember[]>([])
+export default function StaffPage({ onSelectStaff }: Props) {
+  const [users,    setUsers]    = useState<UserRecord[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading,  setLoading]  = useState(true)
   const [filter,   setFilter]   = useState<FilterTab>('all')
   const [search,   setSearch]   = useState('')
 
   useEffect(() => {
-    const unsubStaff = onSnapshot(collection(db, 'staff'), snap => {
-      setStaff(
+    const unsubUsers = onSnapshot(collection(db, 'users'), snap => {
+      setUsers(
         snap.docs
-          .map(d => d.data() as StaffMember)
-          .sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr')),
+          .map(d => ({ uid: d.id, ...d.data() } as UserRecord))
+          .filter(u => !u.email.toLowerCase().includes('test') && !u.displayName.toLowerCase().includes('test'))
+          .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr')),
       )
       setLoading(false)
     })
     const unsubSessions = onSnapshot(collection(db, 'sessions'), snap => {
       setSessions(snap.docs.map(d => d.data() as Session))
     })
-    return () => { unsubStaff(); unsubSessions() }
+    return () => { unsubUsers(); unsubSessions() }
   }, [])
 
   const typeCounts = useMemo(() => {
-    const counts: Partial<Record<StaffType, number>> = {}
-    for (const m of staff) counts[m.type] = (counts[m.type] ?? 0) + 1
+    const counts: Partial<Record<UserType, number>> = {}
+    for (const u of users) {
+      if (u.type) counts[u.type] = (counts[u.type] ?? 0) + 1
+    }
     return counts
-  }, [staff])
+  }, [users])
 
   const filtered = useMemo(() => {
-    let data = staff
-    if (filter !== 'all') data = data.filter(m => m.type === filter)
+    let data = users
+    if (filter !== 'all') data = data.filter(u => u.type === filter)
     if (search.trim()) {
       const q = search.toLowerCase()
-      data = data.filter(m =>
-        m.firstName.toLowerCase().includes(q) ||
-        m.lastName.toLowerCase().includes(q)  ||
-        m.email.toLowerCase().includes(q)     ||
-        m.phone.toLowerCase().includes(q),
+      data = data.filter(u =>
+        u.displayName.toLowerCase().includes(q) ||
+        u.email.toLowerCase().includes(q)       ||
+        (u.phone ?? '').toLowerCase().includes(q),
       )
     }
     return data
-  }, [staff, filter, search])
+  }, [users, filter, search])
 
   const stats = useMemo(() => {
     const now = new Date()
     const map: Record<string, { sessionCount: number; nextSession: Session | null }> = {}
-    for (const m of staff) {
-      const fullName = `${m.firstName} ${m.lastName}`
-      const memberSessions = sessions.filter(s => s.handler === fullName)
-      const planned = memberSessions
+    for (const u of users) {
+      const userSessions = sessions.filter(s => s.handler === u.displayName)
+      const planned = userSessions
         .filter(s => s.status === 'planned' && new Date(s.date) > now)
         .sort((a, b) => a.date.localeCompare(b.date))
-      map[m.id] = {
-        sessionCount: memberSessions.length,
+      map[u.uid] = {
+        sessionCount: userSessions.length,
         nextSession:  planned[0] ?? null,
       }
     }
     return map
-  }, [staff, sessions])
+  }, [users, sessions])
 
   if (loading) return <EmptyState icon="🥼" title="Chargement…" />
 
-  const activeCount   = staff.filter(m => m.status === 'active').length
-  const acacedCount   = staff.filter(m => m.acacedCertified).length
+  const acacedCount = users.filter(u => u.acacedCertified).length
 
   const filterChips = [
-    { key: 'all', label: 'Tous', count: staff.length },
-    ...ALL_TYPES
+    { key: 'all', label: 'Tous', count: users.length },
+    ...USER_TYPES
       .filter(t => typeCounts[t])
-      .map(t => ({ key: t, label: TYPE_META[t].label, count: typeCounts[t] })),
+      .map(t => ({ key: t, label: USER_TYPE_META[t].label, count: typeCounts[t] })),
   ]
 
   return (
     <>
       <PageHeader
         title="Intervenants"
-        subtitle={`${staff.length} intervenant${staff.length !== 1 ? 's' : ''} · ${activeCount} actif${activeCount !== 1 ? 's' : ''} · ${acacedCount} ACACED`}
-      >
-        {canWrite && <button className="btn btn-primary" onClick={onAddStaff}>+ Ajouter un intervenant</button>}
-      </PageHeader>
+        subtitle={`${users.length} intervenant${users.length !== 1 ? 's' : ''} · ${acacedCount} ACACED`}
+      />
 
       <div className="table-wrapper" style={{ marginBottom: 'var(--sp-5)' }}>
         <div className="table-toolbar">
@@ -135,36 +119,34 @@ export default function StaffPage({ onAddStaff, onSelectStaff }: Props) {
         />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 'var(--sp-4)' }}>
-          {filtered.map(member => {
-            const { label, bg, color, icon } = TYPE_META[member.type]
-            const s = stats[member.id] ?? { sessionCount: 0, nextSession: null }
-            const fullName = `${member.firstName} ${member.lastName}`
+          {filtered.map(user => {
+            const typeMeta = user.type ? USER_TYPE_META[user.type] : null
+            const s = stats[user.uid] ?? { sessionCount: 0, nextSession: null }
             return (
-              <div key={member.id} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
+              <div key={user.uid} className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column' }}>
 
                 {/* Header */}
                 <div
                   style={{ padding: 'var(--sp-4)', borderBottom: '1px solid var(--slate-100)', cursor: 'pointer' }}
-                  onClick={() => onSelectStaff(member.id, fullName)}
+                  onClick={() => onSelectStaff(user.uid, user.displayName)}
                 >
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--sp-3)' }}>
-                    <div style={{ fontSize: 32, lineHeight: 1, flexShrink: 0 }}>{icon}</div>
+                    <div style={{ fontSize: 32, lineHeight: 1, flexShrink: 0 }}>{typeMeta?.icon ?? '👤'}</div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', flexWrap: 'wrap', marginBottom: 'var(--sp-1)' }}>
-                        <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: bg, color, letterSpacing: '0.04em' }}>
-                          {label}
-                        </span>
-                        {member.acacedCertified && (
+                        {typeMeta && (
+                          <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: typeMeta.bg, color: typeMeta.color, letterSpacing: '0.04em' }}>
+                            {typeMeta.label}
+                          </span>
+                        )}
+                        {user.acacedCertified && (
                           <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 99, background: '#dcfce7', color: '#15803d', letterSpacing: '0.04em' }}>
                             ACACED
                           </span>
                         )}
-                        {member.status === 'inactive' && (
-                          <span style={{ fontSize: 10, fontWeight: 600, color: 'var(--slate-400)' }}>Inactif</span>
-                        )}
                       </div>
                       <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--slate-900)', lineHeight: 1.2 }}>
-                        {fullName}
+                        {user.displayName || user.email}
                       </div>
                     </div>
                   </div>
@@ -197,16 +179,16 @@ export default function StaffPage({ onAddStaff, onSelectStaff }: Props) {
 
                 {/* Contact */}
                 <div style={{ padding: 'var(--sp-3) var(--sp-4)', display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)', flex: 1 }}>
-                  {member.phone && (
+                  {user.phone && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
                       <span style={{ fontSize: 13 }}>📞</span>
-                      <span style={{ fontSize: 12, color: 'var(--slate-600)' }}>{member.phone}</span>
+                      <span style={{ fontSize: 12, color: 'var(--slate-600)' }}>{user.phone}</span>
                     </div>
                   )}
-                  {member.email && (
+                  {user.email && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)' }}>
                       <span style={{ fontSize: 13 }}>✉</span>
-                      <span style={{ fontSize: 12, color: 'var(--slate-500)', wordBreak: 'break-all' }}>{member.email}</span>
+                      <span style={{ fontSize: 12, color: 'var(--slate-500)', wordBreak: 'break-all' }}>{user.email}</span>
                     </div>
                   )}
                 </div>

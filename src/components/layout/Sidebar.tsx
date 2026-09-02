@@ -70,9 +70,11 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
 
   useEffect(() => {
     return onSnapshot(collection(db, 'animals'), snap => {
+      const PEN_OVERDUE_MS = 15 * 24 * 60 * 60 * 1000
       const count = snap.docs.filter(d => {
         const a = d.data() as Animal
-        return a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji))
+        const penOverdue = !!a.penMaintenance && (Date.now() - new Date(a.penMaintenance).getTime()) > PEN_OVERDUE_MS
+        return a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)) || penOverdue
       }).length
       setAlertCount(count)
     })
@@ -133,11 +135,13 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
       <div className="sb-footer" ref={footerRef}>
         {open && (
           <div className="sb-user-menu">
-            <div className="sb-user-menu-info">
-              <p className="sb-user-menu-name">{shortName(user)}</p>
-              <p className="sb-user-menu-email">{user.email}</p>
-            </div>
-            <div className="sb-user-menu-divider" />
+            <button
+              className="sb-user-menu-item"
+              onClick={() => { setOpen(false); onNavigate('profile') }}
+            >
+              <span>👤</span>
+              Mon profil
+            </button>
             <button
               className="sb-user-menu-item"
               onClick={() => { setOpen(false); onSignOut() }}

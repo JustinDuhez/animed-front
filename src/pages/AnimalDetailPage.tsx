@@ -3,7 +3,7 @@ import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/f
 import { db, storage } from '../firebase.js'
 import type { Animal, AnimalDocument, Status, Vaccine } from '../data/animal.js'
 import type { Session } from '../data/session.js'
-import type { StaffMember } from '../data/staff.js'
+import type { UserRecord } from '../data/user.js'
 import { ANIMAL_STATUS_MAP, requiresVaccineAlert } from '../utils/badges.js'
 import { useRole } from '../context/RoleContext.js'
 import PageHeader from '../components/ui/PageHeader.js'
@@ -43,7 +43,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   const [uploading, setUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadError, setUploadError] = useState('')
-  const [staffList,     setStaffList]     = useState<StaffMember[]>([])
+  const [staffList,     setStaffList]     = useState<UserRecord[]>([])
   const [knownSpecies,  setKnownSpecies]  = useState<string[]>([])
   const [showQrModal,   setShowQrModal]   = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -66,8 +66,8 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   }, [id])
 
   useEffect(() => {
-    return onSnapshot(collection(db, 'staff'), snap => {
-      setStaffList(snap.docs.map(d => d.data() as StaffMember))
+    return onSnapshot(collection(db, 'users'), snap => {
+      setStaffList(snap.docs.map(d => ({ uid: d.id, ...d.data() } as UserRecord)))
     })
   }, [])
 
@@ -349,7 +349,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                   </div>
 
                   <div className="info-tile">
-                    <div className="info-label">Antiparasitaire</div>
+                    <div className="info-label">Vermifuge</div>
                     {editing && draft ? (
                       <>
                         <label className="form-checkbox-row" style={{ marginTop: 6 }}>
@@ -406,16 +406,16 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                   })()}
 
                   <div className="info-tile">
-                    <div className="info-label">Intervenant référent</div>
+                    <div className="info-label">Référent</div>
                     {editing && draft
                       ? <input className="form-input" type="text" value={draft.handler === '—' ? '' : draft.handler} onChange={e => setField('handler', e.target.value || '—')} style={{ marginTop: 4 }} />
                       : <div className="info-value" style={{ fontSize: 13 }}>
                           {d.handler === '—'
                             ? <span style={{ color: 'var(--slate-400)' }}>—</span>
                             : (() => {
-                                const member = staffList.find(m => `${m.firstName} ${m.lastName}` === d.handler)
+                                const member = staffList.find(m => m.displayName === d.handler)
                                 return member
-                                  ? <span style={{ color: 'var(--green-600)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => onSelectStaff(member.id, `${member.firstName} ${member.lastName}`)}>{d.handler}</span>
+                                  ? <span style={{ color: 'var(--green-600)', cursor: 'pointer', textDecoration: 'underline' }} onClick={() => onSelectStaff(member.uid, member.displayName)}>{d.handler}</span>
                                   : <span>{d.handler}</span>
                               })()}
                         </div>}
@@ -625,21 +625,23 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                     <div style={{ fontSize: 13, color: 'var(--slate-400)', textAlign: 'center' }}>Aucun vaccin</div>
                   )}
                   {draft.vaccines.map((v, i) => (
-                    <div key={i} className="vaccine-row">
-                      <input className="form-input" type="text" placeholder="Vaccin" value={v.name} onChange={e => updateVaccine(i, 'name', e.target.value)} style={{ flex: 2 }} />
-                      <select className="form-select" value={v.status} onChange={e => updateVaccine(i, 'status', e.target.value)} style={{ flex: 1 }}>
-                        <option value="ok">À jour</option>
-                        <option value="soon">Bientôt</option>
-                        <option value="expired">Expiré</option>
-                      </select>
-                      <input className="form-input" type="text" placeholder="Info" value={v.info} onChange={e => updateVaccine(i, 'info', e.target.value)} style={{ flex: 2 }} />
-                      <button type="button" className="td-action-btn danger" onClick={() => removeVaccine(i)}>🗑</button>
+                    <div key={i} style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }}>
+                      <div className="vaccine-row">
+                        <input className="form-input" type="text" placeholder="Vaccin" value={v.name} onChange={e => updateVaccine(i, 'name', e.target.value)} style={{ flex: 2 }} />
+                        <select className="form-select" value={v.status} onChange={e => updateVaccine(i, 'status', e.target.value)} style={{ flex: 1 }}>
+                          <option value="ok">À jour</option>
+                          <option value="soon">Bientôt</option>
+                          <option value="expired">Expiré</option>
+                        </select>
+                        <button type="button" className="td-action-btn danger" onClick={() => removeVaccine(i)}>🗑</button>
+                      </div>
+                      <input className="form-input" type="date" value={v.info} onChange={e => updateVaccine(i, 'info', e.target.value)} />
                     </div>
                   ))}
                   <div className="tb-dropdown-divider" style={{ margin: '2px 0' }} />
                   <label className="form-checkbox-row">
                     <input type="checkbox" className="table-check" checked={draft.antiparasiteOk} onChange={e => setField('antiparasiteOk', e.target.checked)} />
-                    Antiparasitaire actif
+                    Vermifuge actif
                   </label>
                 </>
               ) : (
@@ -659,7 +661,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                   })}
                   <div className="tb-dropdown-divider" style={{ margin: '2px 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                    <span style={{ color: 'var(--slate-600)' }}>Antiparasitaire</span>
+                    <span style={{ color: 'var(--slate-600)' }}>Vermifuge</span>
                     <span style={{ fontWeight: 700, color: d.antiparasiteOk ? 'var(--green-600)' : 'var(--amber-600)' }}>
                       {d.antiparasiteOk ? '✓ Actif' : '⚠ Non renseigné'}
                     </span>

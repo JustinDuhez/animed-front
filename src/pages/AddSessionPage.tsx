@@ -4,7 +4,7 @@ import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import type { Organization } from '../data/organization.js'
 import type { Session } from '../data/session.js'
-import type { StaffMember } from '../data/staff.js'
+import type { UserRecord } from '../data/user.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 
@@ -17,7 +17,7 @@ interface Props {
 export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }: Props) {
   const [animals,    setAnimals]    = useState<Animal[]>([])
   const [orgs,       setOrgs]       = useState<Organization[]>([])
-  const [staff,      setStaff]      = useState<StaffMember[]>([])
+  const [staff,      setStaff]      = useState<UserRecord[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
 
@@ -45,12 +45,12 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
           .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
       )
     })
-    const unsubStaff = onSnapshot(collection(db, 'staff'), snap => {
+    const unsubStaff = onSnapshot(collection(db, 'users'), snap => {
       setStaff(
         snap.docs
-          .map(d => d.data() as StaffMember)
-          .filter(m => m.status === 'active')
-          .sort((a, b) => a.lastName.localeCompare(b.lastName, 'fr'))
+          .map(d => ({ uid: d.id, ...d.data() } as UserRecord))
+          .filter(u => u.displayName)
+          .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'))
       )
     })
     return () => { unsubAnimals(); unsubOrgs(); unsubStaff() }
@@ -198,10 +198,9 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
                   <label className="form-label">Intervenant</label>
                   <select className="form-select" value={handler} onChange={e => setHandler(e.target.value)}>
                     <option value="">— Sélectionner un intervenant —</option>
-                    {staff.map(m => {
-                      const fullName = `${m.firstName} ${m.lastName}`
-                      return <option key={m.id} value={fullName}>{fullName}</option>
-                    })}
+                    {staff.map(u => (
+                      <option key={u.uid} value={u.displayName}>{u.displayName}</option>
+                    ))}
                   </select>
                 </div>
 
