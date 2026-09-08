@@ -10,6 +10,7 @@ import AlertBanner from '../components/ui/AlertBanner.js'
 import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
+import AnimalExportModal from '../components/ui/AnimalExportModal.js'
 
 type FilterTab = 'tous' | 'actif' | 'repos' | 'alerte'
 type SortKey   = 'name' | 'species' | 'sessions' | 'handler'
@@ -60,7 +61,8 @@ export default function AnimalsPage({ onSelectAnimal, onAddAnimal, initialFilter
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [sortKey,    setSortKey]    = useState<SortKey | null>('name')
   const [sortDir,    setSortDir]    = useState<SortDir>('asc')
-  const [showQrGrid, setShowQrGrid] = useState(false)
+  const [showQrGrid,     setShowQrGrid]     = useState(false)
+  const [showExportModal, setShowExportModal] = useState(false)
 
   const selectAllRef = useRef<HTMLInputElement>(null)
 
@@ -197,7 +199,7 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
           />
           <FilterBar chips={filterChips} active={filter} onChange={f => handleFilter(f as FilterTab)} />
           <button className="btn btn-secondary btn-sm" onClick={() => setShowQrGrid(true)}>QR Codes</button>
-          <button className="btn btn-secondary btn-sm">⬇ Exporter</button>
+          <button className="btn btn-secondary btn-sm" onClick={() => setShowExportModal(true)}>⬇ Exporter</button>
         </div>
 
         <table>
@@ -374,6 +376,13 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
             </div>
           </div>
         </div>
+      )}
+
+      {showExportModal && (
+        <AnimalExportModal
+          animals={animals}
+          onClose={() => setShowExportModal(false)}
+        />
       )}
     </>
   )
