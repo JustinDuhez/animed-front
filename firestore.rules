@@ -54,7 +54,7 @@ service cloud.firestore {
         'sessions', 'lastSession', 'handler', 'gender', 'birthDate',
         'weight', 'chipId', 'lastVetCheck', 'antiparasiteOk',
         'antiparasiteInfo', 'vermifugeLastDate', 'establishments',
-        'nextSession', 'vaccines', 'qrCode', 'penMaintenance'
+        'nextSession', 'vaccines', 'qrCode', 'penMaintenance', 'retirementDate', 'arrivalDate'
       ];
       let requiredFields = [
         'id', 'emoji', 'name', 'species', 'status', 'vaccineOk',

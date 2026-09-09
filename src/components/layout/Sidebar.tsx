@@ -5,6 +5,7 @@ import type { User } from 'firebase/auth'
 import type { Animal } from '../../data/animal.js'
 import { useRole } from '../../context/RoleContext.js'
 import { ROLE_LABELS, requiresVaccineAlert } from '../../utils/badges.js'
+import { isOverdue } from '../../utils/format.js'
 
 interface NavItem {
   icon: string
@@ -70,11 +71,9 @@ export default function Sidebar({ activePage, onNavigate, user, onSignOut }: Pro
 
   useEffect(() => {
     return onSnapshot(collection(db, 'animals'), snap => {
-      const PEN_OVERDUE_MS = 15 * 24 * 60 * 60 * 1000
       const count = snap.docs.filter(d => {
         const a = d.data() as Animal
-        const penOverdue = !!a.penMaintenance && (Date.now() - new Date(a.penMaintenance).getTime()) > PEN_OVERDUE_MS
-        return a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)) || penOverdue
+        return a.status === 'alerte' || (!a.vaccineOk && requiresVaccineAlert(a.emoji)) || isOverdue(a.penMaintenance, 15)
       }).length
       setAlertCount(count)
     })
