@@ -37,6 +37,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
   const [status, setStatus] = useState<Status>('actif')
   const [gender, setGender] = useState<'Mâle' | 'Femelle'>('Mâle')
   const [birthDate, setBirthDate] = useState('')
+  const [arrivalDate, setArrivalDate] = useState(new Date().toISOString().slice(0, 10))
   const [weight, setWeight] = useState('')
   const [chipId, setChipId] = useState('')
 
@@ -97,6 +98,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
         status,
         gender,
         birthDate: birthDate.trim() || '—',
+        ...(arrivalDate.trim() ? { arrivalDate: arrivalDate.trim() } : {}),
         weight: weight.trim() || '—',
         chipId: chipId.trim() || '—',
         handler: handler.trim() || '—',
@@ -108,6 +110,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
         antiparasiteInfo: antiparasiteInfo.trim() || 'Non renseigné',
         vermifugeLastDate: vermifugeLastDate.trim() || '—',
         ...(penMaintenance.trim() ? { penMaintenance: penMaintenance.trim() } : {}),
+        ...(status === 'retraite' ? { retirementDate: new Date().toISOString().slice(0, 10) } : {}),
         establishments: establishments.filter(e => e.trim()),
         nextSession: nextSessionStructure.trim() && nextSessionDate.trim()
           ? { structure: nextSessionStructure.trim(), date: nextSessionDate.trim() }
@@ -182,6 +185,10 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
                   <div className="form-field">
                     <label className="form-label">Date de naissance</label>
                     <input className="form-input" type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} />
+                  </div>
+                  <div className="form-field">
+                    <label className="form-label">Date d'entrée</label>
+                    <input className="form-input" type="date" value={arrivalDate} onChange={e => setArrivalDate(e.target.value)} />
                   </div>
                   <div className="form-field">
                     <label className="form-label">Poids</label>

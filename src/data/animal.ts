@@ -39,6 +39,8 @@ export interface Animal {
   vaccines: Vaccine[]
   qrCode?: string
   penMaintenance?: string  // ISO date of last pen cleaning
+  retirementDate?: string  // ISO date the animal was retired
+  arrivalDate?: string     // ISO date the animal entered the AniMed system
 }
 
 export const ANIMALS: Animal[] = [
