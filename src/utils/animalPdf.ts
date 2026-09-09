@@ -2,6 +2,7 @@ import { jsPDF } from 'jspdf'
 import { autoTable } from 'jspdf-autotable'
 import type { CellHookData } from 'jspdf-autotable'
 import type { Animal } from '../data/animal.js'
+import { formatLongDate as fmtDate, isOverdue } from './format.js'
 
 const GREEN  = [22, 163, 74]   as [number, number, number]
 const RED    = [220, 38, 38]   as [number, number, number]
@@ -9,13 +10,6 @@ const AMBER  = [217, 119, 6]   as [number, number, number]
 const SLATE  = [100, 116, 139] as [number, number, number]
 const DARK   = [15, 23, 42]    as [number, number, number]
 const LIGHT  = [248, 250, 252] as [number, number, number]
-
-const PEN_OVERDUE_MS = 15 * 24 * 60 * 60 * 1000
-
-function fmtDate(iso: string | undefined | null): string {
-  if (!iso || iso === '—') return '—'
-  return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })
-}
 
 function statusLabel(s: Animal['status']): string {
   return { actif: 'Actif', repos: 'Repos', alerte: 'Alerte', retraite: 'Retraite' }[s] ?? s
@@ -85,6 +79,8 @@ export function exportAnimalsPdf(animals: Animal[]): void {
         ['N° puce',     a.chipId ?? '—'],
         ['Référent',    a.handler && a.handler !== '—' ? a.handler : '—'],
         ['Dernière séance', fmtDate(a.lastSession)],
+        ['Date d\'entrée', a.arrivalDate ? fmtDate(a.arrivalDate) : '—'],
+        ...(a.status === 'retraite' && a.retirementDate ? [['Date de retraite', fmtDate(a.retirementDate)]] : []),
       ],
     })
     y = (doc as any).lastAutoTable.finalY + 6
@@ -92,7 +88,7 @@ export function exportAnimalsPdf(animals: Animal[]): void {
     /* ── Santé ── */
     section('Santé')
 
-    const penOverdue = !!a.penMaintenance && (Date.now() - new Date(a.penMaintenance).getTime()) > PEN_OVERDUE_MS
+    const penOverdue = isOverdue(a.penMaintenance, 15)
     const penColor   = !a.penMaintenance ? SLATE : penOverdue ? RED : GREEN
 
     autoTable(doc, {
@@ -104,9 +100,9 @@ export function exportAnimalsPdf(animals: Animal[]): void {
       columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50, textColor: SLATE }, 1: { cellWidth: 'auto' } },
       body: [
         ['Dernier contrôle vétérinaire', fmtDate(a.lastVetCheck)],
-        ['Vermifuge',   a.antiparasiteOk ? '✓ Actif' : '⚠ Non renseigné'],
+        ['Vermifuge',   a.antiparasiteOk ? 'Actif' : '! Non renseigné'],
         ['Vermifuge (dernière date)', fmtDate(a.vermifugeLastDate)],
-        ['Entretien du box', a.penMaintenance ? (penOverdue ? `⚠ ${fmtDate(a.penMaintenance)}` : `✓ ${fmtDate(a.penMaintenance)}`) : '—'],
+        ['Entretien du box', a.penMaintenance ? (penOverdue ? `! ${fmtDate(a.penMaintenance)}` : fmtDate(a.penMaintenance)) : '—'],
       ],
       didDrawCell: (data) => {
         if (data.column.index === 1 && data.row.index === 3 && data.cell.section === 'body') {

@@ -4,7 +4,7 @@ import { db } from '../firebase.js'
 import type { Animal } from '../data/animal.js'
 import { ANIMAL_STATUS_MAP, requiresVaccineAlert } from '../utils/badges.js'
 import { useRole } from '../context/RoleContext.js'
-import { formatShortDate } from '../utils/format.js'
+import { formatShortDate, isOverdue } from '../utils/format.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import SearchBar from '../components/ui/SearchBar.js'
@@ -34,10 +34,8 @@ function sortIcon(key: SortKey, sortKey: SortKey | null, sortDir: SortDir) {
   )
 }
 
-const PEN_OVERDUE_MS = 15 * 24 * 60 * 60 * 1000
-
 function isPenOverdue(a: Animal) {
-  return !!a.penMaintenance && (Date.now() - new Date(a.penMaintenance).getTime()) > PEN_OVERDUE_MS
+  return isOverdue(a.penMaintenance, 15)
 }
 
 function thClass(key: SortKey, sortKey: SortKey | null, sortDir: SortDir) {
@@ -294,14 +292,11 @@ const unsub = onSnapshot(collection(db, 'animals'), snap => {
                   {formatShortDate(a.lastSession)}
                 </td>
                 <td>
-                  {a.penMaintenance ? (() => {
-                    const overdue = (Date.now() - new Date(a.penMaintenance).getTime()) > 15 * 24 * 60 * 60 * 1000
-                    return (
-                      <span style={{ color: overdue ? 'var(--red-500)' : 'var(--green-600)', fontSize: 12, fontWeight: 600 }}>
-                        {overdue ? '⚠ ' : '✓ '}{formatShortDate(a.penMaintenance)}
-                      </span>
-                    )
-                  })() : <span style={{ color: 'var(--slate-300)' }}>—</span>}
+                  {a.penMaintenance ? (
+                    <span style={{ color: isPenOverdue(a) ? 'var(--red-500)' : 'var(--green-600)', fontSize: 12, fontWeight: 600 }}>
+                      {isPenOverdue(a) ? '⚠ ' : '✓ '}{formatShortDate(a.penMaintenance)}
+                    </span>
+                  ) : <span style={{ color: 'var(--slate-300)' }}>—</span>}
                 </td>
                 <td style={{ color: a.handler === '—' ? 'var(--slate-300)' : 'var(--slate-600)' }}>
                   {a.handler}

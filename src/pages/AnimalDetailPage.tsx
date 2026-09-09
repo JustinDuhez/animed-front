@@ -10,7 +10,7 @@ import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import SessionGridCard from '../components/ui/SessionGridCard.js'
-import { formatMonthHeading, formatSessionLabel, formatShortDate } from '../utils/format.js'
+import { formatMonthHeading, formatSessionLabel, formatShortDate, formatLongDate, isOverdue, toDateInputValue } from '../utils/format.js'
 import { docIcon, formatFileSize, uploadDocument, deleteDocument } from '../utils/fileUpload.js'
 import { generateQrDataUrl } from '../utils/qrCode.js'
 
@@ -139,7 +139,13 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
     try {
       const validVaccines = draft.vaccines.filter(v => v.name.trim())
       const vaccineOk = validVaccines.length > 0 && validVaccines.every(v => v.status === 'ok')
-      const updated: Animal = { ...draft, vaccines: validVaccines, vaccineOk }
+      const newlyRetired = draft.status === 'retraite' && animal?.status !== 'retraite'
+      const updated: Animal = {
+        ...draft,
+        vaccines: validVaccines,
+        vaccineOk,
+        ...(newlyRetired ? { retirementDate: new Date().toISOString().slice(0, 10) } : {}),
+      }
       await updateDoc(doc(db, 'animals', id), updated as any)
       setEditing(false)
       setDraft(null)
@@ -169,7 +175,9 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   }
 
   async function updateStatus(newStatus: Status) {
-    await updateDoc(doc(db, 'animals', id), { status: newStatus } as any)
+    const updates: Partial<Animal> = { status: newStatus }
+    if (newStatus === 'retraite') updates.retirementDate = new Date().toISOString().slice(0, 10)
+    await updateDoc(doc(db, 'animals', id), updates as any)
   }
 
   function updateEstablishment(i: number, value: string) {
@@ -321,6 +329,13 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                   </div>
 
                   <div className="info-tile">
+                    <div className="info-label">Date d'entrée</div>
+                    {editing && draft
+                      ? <input className="form-input" type="date" value={toDateInputValue(draft.arrivalDate)} onChange={e => setField('arrivalDate', e.target.value || undefined as any)} style={{ marginTop: 4 }} />
+                      : <div className="info-value">{d.arrivalDate ? formatShortDate(d.arrivalDate) : <span style={{ color: 'var(--slate-400)' }}>—</span>}</div>}
+                  </div>
+
+                  <div className="info-tile">
                     <div className="info-label">Poids</div>
                     {editing && draft
                       ? <input className="form-input" type="text" value={draft.weight === '—' ? '' : draft.weight} onChange={e => setField('weight', e.target.value || '—')} style={{ marginTop: 4 }} />
@@ -382,20 +397,18 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                   </div>
 
                   {(() => {
-                    const isPenOverdue = d.penMaintenance
-                      ? (Date.now() - new Date(d.penMaintenance).getTime()) > 15 * 24 * 60 * 60 * 1000
-                      : false
+                    const isPenOverdue = isOverdue(d.penMaintenance, 15)
                     return (
                       <div className={`info-tile${isPenOverdue ? ' info-tile-alert' : ''}`}>
                         <div className="info-label">Entretien du box (dernière date)</div>
                         {editing && draft
-                          ? <input className="form-input" type="date" value={draft.penMaintenance ?? ''} onChange={e => setField('penMaintenance', e.target.value || undefined as any)} style={{ marginTop: 4 }} />
+                          ? <input className="form-input" type="date" value={toDateInputValue(draft.penMaintenance)} onChange={e => setField('penMaintenance', e.target.value || undefined as any)} style={{ marginTop: 4 }} />
                           : <div className="info-value" style={{ fontSize: 13 }}>
                               {d.penMaintenance
                                 ? <>
                                     <span style={{ color: isPenOverdue ? 'var(--red-500)' : 'var(--green-600)' }}>
                                       {isPenOverdue ? '⚠ ' : '✓ '}
-                                      {new Date(d.penMaintenance).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                      {formatLongDate(d.penMaintenance)}
                                     </span>
                                     {isPenOverdue && <div className="info-sub" style={{ color: 'var(--red-500)' }}>Nettoyage requis — plus de 15 jours</div>}
                                   </>
@@ -420,6 +433,13 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
                               })()}
                         </div>}
                   </div>
+
+                  {d.status === 'retraite' && d.retirementDate && (
+                    <div className="info-tile">
+                      <div className="info-label">Date de retraite</div>
+                      <div className="info-value" style={{ fontSize: 13 }}>{formatLongDate(d.retirementDate)}</div>
+                    </div>
+                  )}
 
                   <div className="info-tile">
                     <div className="info-label">Séances ce mois</div>
