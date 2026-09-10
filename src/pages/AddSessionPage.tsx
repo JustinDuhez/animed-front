@@ -7,6 +7,7 @@ import type { Session } from '../data/session.js'
 import type { UserRecord } from '../data/user.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
+import DateTimeStepInput from '../components/ui/DateTimeStepInput.js'
 
 interface Props {
   onBack: () => void
@@ -20,6 +21,11 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
   const [staff,      setStaff]      = useState<UserRecord[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [error,      setError]      = useState('')
+  const [loadErrors, setLoadErrors] = useState<Set<string>>(new Set())
+
+  function markLoadError(label: string) {
+    setLoadErrors(prev => new Set(prev).add(label))
+  }
 
   const [animalIds,  setAnimalIds]  = useState<Set<string>>(preselectedAnimalId ? new Set([preselectedAnimalId]) : new Set())
   const [date,       setDate]       = useState('')
@@ -36,7 +42,7 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
           .filter(a => a.status !== 'retraite')
           .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
       )
-    })
+    }, err => { console.error(err); markLoadError('les animaux') })
     const unsubOrgs = onSnapshot(collection(db, 'organizations'), snap => {
       setOrgs(
         snap.docs
@@ -44,7 +50,7 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
           .filter(o => o.status === 'active')
           .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
       )
-    })
+    }, err => { console.error(err); markLoadError('les structures') })
     const unsubStaff = onSnapshot(collection(db, 'users'), snap => {
       setStaff(
         snap.docs
@@ -52,7 +58,7 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
           .filter(u => u.displayName)
           .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'))
       )
-    })
+    }, err => { console.error(err); markLoadError('les intervenants') })
     return () => { unsubAnimals(); unsubOrgs(); unsubStaff() }
   }, [])
 
@@ -101,6 +107,10 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
           {submitting ? 'Enregistrement…' : '✓ Enregistrer'}
         </button>
       </PageHeader>
+
+      {loadErrors.size > 0 && (
+        <AlertBanner title={`Erreur de chargement : ${[...loadErrors].join(', ')}. Essayez de rafraîchir la page.`} />
+      )}
 
       {error && <AlertBanner title={error} />}
 
@@ -161,13 +171,7 @@ export default function AddSessionPage({ onBack, onSaved, preselectedAnimalId }:
 
                 <div className="form-field" style={{ gridColumn: '1 / -1' }}>
                   <label className="form-label">Date et heure <span className="form-required">*</span></label>
-                  <input
-                    className="form-input"
-                    type="datetime-local"
-                    value={date}
-                    onChange={e => setDate(e.target.value)}
-                    required
-                  />
+                  <DateTimeStepInput value={date} onChange={setDate} required />
                 </div>
 
               </div>

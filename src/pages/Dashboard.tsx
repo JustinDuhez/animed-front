@@ -8,7 +8,7 @@ import KpiCard from '../components/ui/KpiCard.js'
 import SessionCard from '../components/ui/SessionCard.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
-import { formatSessionLabel, formatShortDate } from '../utils/format.js'
+import { formatSessionLabel, formatShortDate, isOverdue } from '../utils/format.js'
 import { requiresVaccineAlert } from '../utils/badges.js'
 
 interface Props {
@@ -141,17 +141,19 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
             <thead>
               <tr>
                 <th>Animal</th>
+                <th>Espèce</th>
                 <th>Statut</th>
                 <th>Vaccin</th>
                 <th>Séances / mois</th>
                 <th>Dernière séance</th>
+                <th>Entretien box</th>
                 <th>Intervenant</th>
                 <th className="col-actions">Actions</th>
               </tr>
             </thead>
             <tbody>
               {recentAnimals.length === 0 ? (
-                <tr><td colSpan={7} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: 'var(--sp-6)' }}>Aucun animal</td></tr>
+                <tr><td colSpan={9} style={{ textAlign: 'center', color: 'var(--slate-400)', padding: 'var(--sp-6)' }}>Aucun animal</td></tr>
               ) : recentAnimals.map(a => (
                 <tr key={a.id}>
                   <td className="td-primary">
@@ -163,6 +165,7 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
                       </div>
                     </div>
                   </td>
+                  <td style={{ color: 'var(--slate-600)' }}>{a.species}</td>
                   <td>
                     <span className={`badge ${{ actif: 'badge-actif', repos: 'badge-repos', alerte: 'badge-alerte', retraite: 'badge-retraite' }[a.status] ?? 'badge-neutral'}`}>
                       <span className="badge-dot" />{{ actif: 'Actif', repos: 'Repos', alerte: 'Alerte', retraite: 'Retraité' }[a.status] ?? a.status}
@@ -175,6 +178,13 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
                   </td>
                   <td>{a.sessions[currentMonth] ?? 0}</td>
                   <td style={{ color: a.lastSession === '—' ? 'var(--slate-300)' : 'var(--slate-500)' }}>{formatShortDate(a.lastSession)}</td>
+                  <td>
+                    {a.penMaintenance ? (
+                      <span style={{ color: isOverdue(a.penMaintenance, 15) ? 'var(--red-500)' : 'var(--green-600)', fontSize: 12, fontWeight: 600 }}>
+                        {isOverdue(a.penMaintenance, 15) ? '⚠ ' : '✓ '}{formatShortDate(a.penMaintenance)}
+                      </span>
+                    ) : <span style={{ color: 'var(--slate-300)' }}>—</span>}
+                  </td>
                   <td style={{ color: a.handler === '—' ? 'var(--slate-300)' : 'var(--slate-600)' }}>{a.handler}</td>
                   <td className="td-actions">
                     <button className="td-action-btn" title="Voir la fiche" onClick={() => onSelectAnimal(a.id, a.name)}>🔗</button>

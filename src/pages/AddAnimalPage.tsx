@@ -5,6 +5,7 @@ import type { Animal, Status, Vaccine } from '../data/animal.js'
 import { generateQrDataUrl } from '../utils/qrCode.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
+import DateTimeStepInput from '../components/ui/DateTimeStepInput.js'
 
 interface Props {
   onBack: () => void
@@ -331,7 +332,7 @@ export default function AddAnimalPage({ onBack, onSaved }: Props) {
                 </div>
                 <div className="form-field" style={{ margin: 0 }}>
                   <label className="form-label">Date et heure</label>
-                  <input className="form-input" type="datetime-local" value={nextSessionDate} onChange={e => setNextSessionDate(e.target.value)} />
+                  <DateTimeStepInput value={nextSessionDate} onChange={setNextSessionDate} />
                 </div>
                 <p style={{ fontSize: 11, color: 'var(--slate-400)', margin: 0 }}>
                   Remplissez les deux champs pour enregistrer la prochaine séance.
