@@ -9,6 +9,7 @@ import { SESSION_STATUS_MAP } from '../utils/badges.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
+import DateTimeStepInput from '../components/ui/DateTimeStepInput.js'
 import { formatFullDate, formatTime } from '../utils/format.js'
 import { useRole } from '../context/RoleContext.js'
 
@@ -30,11 +31,16 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
   const [draft,             setDraft]             = useState<Session | null>(null)
   const [saving,            setSaving]            = useState(false)
   const [saveError,         setSaveError]         = useState('')
+  const [loadErrors,        setLoadErrors]        = useState<Set<string>>(new Set())
+
+  function markLoadError(label: string) {
+    setLoadErrors(prev => new Set(prev).add(label))
+  }
 
   useEffect(() => {
     return onSnapshot(doc(db, 'sessions', id), snap => {
       setSession(snap.exists() ? (snap.data() as Session) : null)
-    })
+    }, err => { console.error(err); markLoadError('la séance') })
   }, [id])
 
   useEffect(() => {
@@ -42,7 +48,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
       const map: Record<string, Animal> = {}
       snap.docs.forEach(d => { const a = d.data() as Animal; map[a.id] = a })
       setAllAnimals(map)
-    })
+    }, err => { console.error(err); markLoadError('les animaux') })
   }, [])
 
   useEffect(() => {
@@ -58,7 +64,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
           .filter(o => o.status === 'active')
           .sort((a, b) => a.name.localeCompare(b.name, 'fr'))
       )
-    })
+    }, err => { console.error(err); markLoadError('les structures') })
   }, [])
 
   useEffect(() => {
@@ -69,7 +75,7 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
           .filter(u => u.displayName)
           .sort((a, b) => a.displayName.localeCompare(b.displayName, 'fr'))
       )
-    })
+    }, err => { console.error(err); markLoadError('les intervenants') })
   }, [])
 
   function startEditing() {
@@ -180,6 +186,10 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
         )}
       </PageHeader>
 
+      {loadErrors.size > 0 && (
+        <AlertBanner title={`Erreur de chargement : ${[...loadErrors].join(', ')}. Essayez de rafraîchir la page.`} />
+      )}
+
       {saveError && <AlertBanner title={saveError} />}
 
       <div className="detail-layout">
@@ -216,7 +226,9 @@ export default function SessionDetailPage({ id, onBack, onSelectAnimal }: Props)
                 <div className="info-tile" style={{ gridColumn: '1 / -1' }}>
                   <div className="info-label">Date et heure</div>
                   {editing && draft ? (
-                    <input className="form-input" type="datetime-local" value={draft.date.slice(0, 16)} onChange={e => setField('date', e.target.value + ':00')} style={{ marginTop: 4 }} />
+                    <div style={{ marginTop: 4 }}>
+                      <DateTimeStepInput value={draft.date.slice(0, 16)} onChange={v => setField('date', v + ':00')} />
+                    </div>
                   ) : (
                     <div className="info-value" style={{ textTransform: 'capitalize' }}>
                       {formatFullDate(s.date)} · {formatTime(s.date)}
