@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { doc, onSnapshot, updateDoc, collection } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import type { UserRecord, UserType } from '../data/user.js'
 import { USER_TYPES, USER_TYPE_META } from '../data/user.js'
@@ -8,7 +8,8 @@ import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatFullDate, formatSessionLabel } from '../utils/format.js'
-import { useRole } from '../context/RoleContext.js'
+import { useRole, useDisplayName } from '../context/RoleContext.js'
+import { sessionsQuery } from '../utils/sessionsQuery.js'
 
 const ROLE_META: Record<string, { label: string; cls: string }> = {
   admin:  { label: 'Administrateur', cls: 'badge-alerte' },
@@ -24,6 +25,7 @@ interface Props {
 
 export default function StaffDetailPage({ id, onBack, onSelectSession }: Props) {
   const role     = useRole()
+  const displayName = useDisplayName()
   const isAdmin  = role === 'admin'
   const canWrite = role === 'admin' || role === 'editor'
 
@@ -41,10 +43,10 @@ export default function StaffDetailPage({ id, onBack, onSelectSession }: Props) 
   }, [id])
 
   useEffect(() => {
-    return onSnapshot(collection(db, 'sessions'), snap => {
+    return onSnapshot(sessionsQuery(role, displayName), snap => {
       setSessions(snap.docs.map(d => d.data() as Session))
     })
-  }, [])
+  }, [role, displayName])
 
   function startEditing() {
     if (!user) return

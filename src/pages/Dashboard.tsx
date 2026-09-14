@@ -10,6 +10,8 @@ import EmptyState from '../components/ui/EmptyState.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import { formatSessionLabel, formatShortDate, isOverdue } from '../utils/format.js'
 import { requiresVaccineAlert } from '../utils/badges.js'
+import { useRole, useDisplayName } from '../context/RoleContext.js'
+import { sessionsQuery } from '../utils/sessionsQuery.js'
 
 interface Props {
   onSelectAnimal:  (id: string, name: string) => void
@@ -19,6 +21,8 @@ interface Props {
 }
 
 export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSession, onViewAlerts }: Props) {
+  const role        = useRole()
+  const displayName = useDisplayName()
   const [animals,  setAnimals]  = useState<Animal[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [orgs,     setOrgs]     = useState<Organization[]>([])
@@ -27,11 +31,11 @@ export default function Dashboard({ onSelectAnimal, onAddSession, onSelectSessio
   useEffect(() => {
     let loaded = 0
     const check = () => { if (++loaded === 3) setLoading(false) }
-    const u1 = onSnapshot(collection(db, 'animals'),       snap => { setAnimals(snap.docs.map(d => d.data() as Animal));      check() })
-    const u2 = onSnapshot(collection(db, 'sessions'),      snap => { setSessions(snap.docs.map(d => d.data() as Session));    check() })
-    const u3 = onSnapshot(collection(db, 'organizations'), snap => { setOrgs(snap.docs.map(d => d.data() as Organization));   check() })
+    const u1 = onSnapshot(collection(db, 'animals'),        snap => { setAnimals(snap.docs.map(d => d.data() as Animal));      check() })
+    const u2 = onSnapshot(sessionsQuery(role, displayName), snap => { setSessions(snap.docs.map(d => d.data() as Session));    check() })
+    const u3 = onSnapshot(collection(db, 'organizations'),  snap => { setOrgs(snap.docs.map(d => d.data() as Organization));   check() })
     return () => { u1(); u2(); u3() }
-  }, [])
+  }, [role, displayName])
 
   const now          = new Date()
   const currentMonth = now.toISOString().slice(0, 7)
