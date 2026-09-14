@@ -9,6 +9,8 @@ import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatDateTime } from '../utils/format.js'
+import { useRole, useDisplayName } from '../context/RoleContext.js'
+import { sessionsQuery } from '../utils/sessionsQuery.js'
 
 type FilterTab = 'all' | UserType
 
@@ -17,6 +19,8 @@ interface Props {
 }
 
 export default function StaffPage({ onSelectStaff }: Props) {
+  const role         = useRole()
+  const displayName  = useDisplayName()
   const [users,    setUsers]    = useState<UserRecord[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -33,11 +37,11 @@ export default function StaffPage({ onSelectStaff }: Props) {
       )
       setLoading(false)
     })
-    const unsubSessions = onSnapshot(collection(db, 'sessions'), snap => {
+    const unsubSessions = onSnapshot(sessionsQuery(role, displayName), snap => {
       setSessions(snap.docs.map(d => d.data() as Session))
     })
     return () => { unsubUsers(); unsubSessions() }
-  }, [])
+  }, [role, displayName])
 
   const typeCounts = useMemo(() => {
     const counts: Partial<Record<UserType, number>> = {}

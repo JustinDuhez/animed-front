@@ -9,19 +9,20 @@ export type { Role }
 interface AuthState {
   role:          Role | null
   isGoogleUser:  boolean
+  displayName:   string
 }
 
-const RoleContext = createContext<AuthState>({ role: null, isGoogleUser: false })
+const RoleContext = createContext<AuthState>({ role: null, isGoogleUser: false, displayName: '' })
 
 export function RoleProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<AuthState>({ role: null, isGoogleUser: false })
+  const [state, setState] = useState<AuthState>({ role: null, isGoogleUser: false, displayName: '' })
 
   useEffect(() => {
     let unsubSnap: (() => void) | undefined
 
     const unsubAuth = onAuthStateChanged(auth, user => {
       unsubSnap?.()
-      if (!user) { setState({ role: null, isGoogleUser: false }); return }
+      if (!user) { setState({ role: null, isGoogleUser: false, displayName: '' }); return }
 
       const isGoogleUser = user.providerData.some(p => p.providerId === 'google.com')
 
@@ -35,7 +36,11 @@ export function RoleProvider({ children }: { children: ReactNode }) {
           })
           return
         }
-        setState({ role: (snap.data()?.role as Role) ?? 'viewer', isGoogleUser })
+        setState({
+          role:        (snap.data()?.role as Role) ?? 'viewer',
+          isGoogleUser,
+          displayName: (snap.data()?.displayName as string) ?? '',
+        })
       })
     })
 
@@ -51,4 +56,8 @@ export function useRole(): Role | null {
 
 export function useIsGoogleUser(): boolean {
   return useContext(RoleContext).isGoogleUser
+}
+
+export function useDisplayName(): string {
+  return useContext(RoleContext).displayName
 }

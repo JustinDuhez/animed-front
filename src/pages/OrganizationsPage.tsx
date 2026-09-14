@@ -9,7 +9,8 @@ import SearchBar from '../components/ui/SearchBar.js'
 import FilterBar from '../components/ui/FilterBar.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatDateTime } from '../utils/format.js'
-import { useRole } from '../context/RoleContext.js'
+import { useRole, useDisplayName } from '../context/RoleContext.js'
+import { sessionsQuery } from '../utils/sessionsQuery.js'
 
 
 type FilterTab = 'all' | OrgType
@@ -21,7 +22,9 @@ interface Props {
 }
 
 export default function OrganizationsPage({ onAddOrganization, onSelectOrganization }: Props) {
-  const canWrite = useRole() !== 'viewer'
+  const role         = useRole()
+  const displayName  = useDisplayName()
+  const canWrite = role !== 'viewer'
   const [orgs,     setOrgs]     = useState<Organization[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [loading,  setLoading]  = useState(true)
@@ -37,11 +40,11 @@ export default function OrganizationsPage({ onAddOrganization, onSelectOrganizat
       )
       setLoading(false)
     })
-    const unsubSessions = onSnapshot(collection(db, 'sessions'), snap => {
+    const unsubSessions = onSnapshot(sessionsQuery(role, displayName), snap => {
       setSessions(snap.docs.map(d => d.data() as Session))
     })
     return () => { unsubOrgs(); unsubSessions() }
-  }, [])
+  }, [role, displayName])
 
   const typeCounts = useMemo(() => {
     const counts: Partial<Record<OrgType, number>> = {}
