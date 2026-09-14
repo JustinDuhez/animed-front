@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { doc, onSnapshot, updateDoc, deleteDoc, collection } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, deleteDoc } from 'firebase/firestore'
 import { db } from '../firebase.js'
 import { ORG_TYPE_META, ORG_TYPE_OPTIONS } from '../data/organization.js'
 import type { Organization, OrgType } from '../data/organization.js'
@@ -8,7 +8,8 @@ import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
 import { formatFullDate, formatSessionLabel } from '../utils/format.js'
-import { useRole } from '../context/RoleContext.js'
+import { useRole, useDisplayName } from '../context/RoleContext.js'
+import { sessionsQuery } from '../utils/sessionsQuery.js'
 
 
 interface Props {
@@ -19,6 +20,7 @@ interface Props {
 
 export default function OrganizationDetailPage({ id, onBack, onSelectSession }: Props) {
   const role = useRole()
+  const displayName = useDisplayName()
   const canWrite = role === 'admin' || role === 'editor'
   const [org,       setOrg]       = useState<Organization | null | undefined>(undefined)
   const [sessions,  setSessions]  = useState<Session[]>([])
@@ -34,10 +36,10 @@ export default function OrganizationDetailPage({ id, onBack, onSelectSession }: 
   }, [id])
 
   useEffect(() => {
-    return onSnapshot(collection(db, 'sessions'), snap => {
+    return onSnapshot(sessionsQuery(role, displayName), snap => {
       setSessions(snap.docs.map(d => d.data() as Session))
     })
-  }, [])
+  }, [role, displayName])
 
   function startEditing() {
     if (!org) return

@@ -10,7 +10,8 @@ import EmptyState from '../components/ui/EmptyState.js'
 import SessionGridCard from '../components/ui/SessionGridCard.js'
 import GoogleCalendarImportModal from '../components/ui/GoogleCalendarImportModal.js'
 import { formatMonthHeading, formatSessionLabel } from '../utils/format.js'
-import { useRole, useIsGoogleUser } from '../context/RoleContext.js'
+import { useRole, useIsGoogleUser, useDisplayName } from '../context/RoleContext.js'
+import { sessionsQuery } from '../utils/sessionsQuery.js'
 
 type FilterTab = 'all' | 'completed' | 'planned' | 'cancelled'
 
@@ -28,8 +29,10 @@ interface Props {
 }
 
 export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSession }: Props) {
-  const canWrite      = useRole() !== 'viewer'
+  const role          = useRole()
+  const canWrite      = role !== 'viewer'
   const isGoogleUser  = useIsGoogleUser()
+  const displayName   = useDisplayName()
   const [sessions,        setSessions]        = useState<Session[]>([])
   const [animals,         setAnimals]         = useState<Record<string, Animal>>({})
   const [loading,         setLoading]         = useState(true)
@@ -38,7 +41,7 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
   const [showGCalImport,  setShowGCalImport]  = useState(false)
 
   useEffect(() => {
-    const unsubSessions = onSnapshot(collection(db, 'sessions'), snap => {
+    const unsubSessions = onSnapshot(sessionsQuery(role, displayName), snap => {
       setSessions(
         snap.docs
           .map(d => d.data() as Session)
@@ -52,7 +55,7 @@ export default function SessionsPage({ onSelectAnimal, onAddSession, onSelectSes
       setAnimals(map)
     })
     return () => { unsubSessions(); unsubAnimals() }
-  }, [])
+  }, [role, displayName])
 
   const counts = useMemo(() => ({
     all:       sessions.length,

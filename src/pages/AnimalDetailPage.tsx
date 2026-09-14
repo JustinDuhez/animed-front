@@ -1,11 +1,11 @@
 import { useState, useEffect, useRef, type ChangeEvent } from 'react'
-import { doc, onSnapshot, updateDoc, query, collection, where } from 'firebase/firestore'
+import { doc, onSnapshot, updateDoc, collection, where } from 'firebase/firestore'
 import { db, storage } from '../firebase.js'
 import type { Animal, AnimalDocument, Status, Vaccine } from '../data/animal.js'
 import type { Session } from '../data/session.js'
 import type { UserRecord } from '../data/user.js'
 import { ANIMAL_STATUS_MAP, requiresVaccineAlert } from '../utils/badges.js'
-import { useRole } from '../context/RoleContext.js'
+import { useRole, useDisplayName } from '../context/RoleContext.js'
 import PageHeader from '../components/ui/PageHeader.js'
 import AlertBanner from '../components/ui/AlertBanner.js'
 import EmptyState from '../components/ui/EmptyState.js'
@@ -13,6 +13,7 @@ import SessionGridCard from '../components/ui/SessionGridCard.js'
 import { formatMonthHeading, formatSessionLabel, formatShortDate, formatLongDate, isOverdue, toDateInputValue } from '../utils/format.js'
 import { docIcon, formatFileSize, uploadDocument, deleteDocument } from '../utils/fileUpload.js'
 import { generateQrDataUrl } from '../utils/qrCode.js'
+import { sessionsQuery } from '../utils/sessionsQuery.js'
 
 type Tab = 'infos' | 'seances' | 'documents'
 
@@ -29,6 +30,7 @@ interface Props {
 
 export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSession, onSelectStaff, onAddAnimal }: Props) {
   const role = useRole()
+  const displayName = useDisplayName()
   const canWrite = role === 'admin' || role === 'editor'
   const [activeTab, setActiveTab] = useState<Tab>('infos')
   const [animal, setAnimal] = useState<Animal | null | undefined>(undefined)
@@ -55,7 +57,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
   }, [id])
 
   useEffect(() => {
-    const q = query(collection(db, 'sessions'), where('animalIds', 'array-contains', id))
+    const q = sessionsQuery(role, displayName, where('animalIds', 'array-contains', id))
     return onSnapshot(q, snap => {
       const records = snap.docs
         .map(d => d.data() as Session)
@@ -63,7 +65,7 @@ export default function AnimalDetailPage({ id, onBack, onSelectSession, onAddSes
       setSessions(records)
       setSessionsLoading(false)
     })
-  }, [id])
+  }, [id, role, displayName])
 
   useEffect(() => {
     return onSnapshot(collection(db, 'users'), snap => {

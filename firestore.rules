@@ -19,6 +19,11 @@ service cloud.firestore {
     function isAdmin()  { return roleOf() == 'admin'; }
     function isEditor() { return roleOf() in ['admin', 'editor']; }
 
+    function myDisplayName() {
+      let u = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(u) ? get(u).data.displayName : null;
+    }
+
     function hasOnlyAllowedFields(fields) {
       return request.resource.data.keys().hasOnly(fields);
     }
@@ -153,7 +158,7 @@ service cloud.firestore {
     // ── Sessions collection ───────────────────────────────────────
 
     match /sessions/{sessionId} {
-      allow read: if isAuthenticated();
+      allow read: if isAuthenticated() && (isAdmin() || resource.data.handler == myDisplayName());
 
       allow create: if isAuthenticated()
                     && isEditor()
